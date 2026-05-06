@@ -140,9 +140,32 @@ body {
   font-size: 20px;
 }
 
-.nav-item:hover {
+.nav-item:hover:not(:disabled) {
   color: var(--gray-200);
   background: rgba(255,255,255,0.05);
+}
+
+.nav-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.nav-danger:hover:not(:disabled) {
+  color: var(--danger);
+  background: var(--danger-dim);
+}
+
+.nav-warning:hover:not(:disabled) {
+  color: var(--orange-400);
+  background: rgba(255,133,25,0.1);
+}
+
+.sidebar-divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  margin: 8px 0;
 }
 
 .nav-item.active {
@@ -293,6 +316,50 @@ body {
   font-weight: 600;
   color: var(--gray-300);
   border: 1px solid rgba(255,255,255,0.06);
+  transition: all 0.25s ease;
+}
+
+.header-badge:hover {
+  border-color: rgba(255,255,255,0.12);
+  background: var(--gray-750);
+}
+
+/* Stat badges in header */
+.stat-badge {
+  gap: 6px;
+  padding: 5px 12px;
+}
+
+.badge-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.badge-icon.blue { filter: hue-rotate(0deg); }
+.badge-icon.orange { filter: hue-rotate(0deg); }
+.badge-icon.green { filter: hue-rotate(0deg); }
+
+.badge-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--white);
+  min-width: 14px;
+  text-align: center;
+}
+
+.header-badge-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255,255,255,0.08);
+  margin: 0 4px;
 }
 
 .header-badge .dot {
@@ -321,100 +388,7 @@ body {
   gap: 20px;
 }
 
-/* ─── Stat Cards Row ─── */
-.stat-cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.stat-card {
-  background: var(--gray-850);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: var(--radius-md);
-  padding: 18px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  transition: all 0.25s ease;
-  cursor: default;
-  position: relative;
-  overflow: hidden;
-}
-
-.stat-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(26,122,255,0.03) 0%, transparent 60%);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-}
-
-.stat-card:hover {
-  border-color: rgba(26,122,255,0.15);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-card);
-}
-
-.stat-card:hover::before {
-  opacity: 1;
-}
-
-.stat-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.stat-icon.blue {
-  background: rgba(26,122,255,0.12);
-  color: var(--blue-400);
-}
-
-.stat-icon.orange {
-  background: rgba(255,133,25,0.12);
-  color: var(--orange-400);
-}
-
-.stat-icon.green {
-  background: var(--success-dim);
-  color: var(--success);
-}
-
-.stat-icon.red {
-  background: var(--danger-dim);
-  color: var(--danger);
-}
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  position: relative;
-  z-index: 1;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: var(--gray-400);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stat-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--white);
-  letter-spacing: -0.5px;
-  line-height: 1.1;
-}
+/* (stat cards removed — indicators moved to header badges) */
 
 /* ─── Grid Layout ─── */
 .dashboard-grid {
@@ -774,11 +748,18 @@ body {
 
 /* ─── Responsive ─── */
 @media (max-width: 1200px) {
-  .stat-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
   .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+  .header-right {
+    gap: 6px;
+  }
+  .badge-label {
+    display: none;
+  }
+  .stat-badge {
+    padding: 5px 8px;
+    gap: 4px;
   }
 }
 
@@ -790,9 +771,6 @@ body {
   .content-area {
     padding: 16px;
   }
-  .stat-cards {
-    grid-template-columns: 1fr;
-  }
   .ai-input-wrapper {
     flex-direction: column;
   }
@@ -802,5 +780,11 @@ body {
   }
   .field-device input {
     width: 100%;
+  }
+  .stat-badge {
+    display: none;
+  }
+  .header-badge-divider {
+    display: none;
   }
 }

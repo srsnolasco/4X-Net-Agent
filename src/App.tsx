@@ -184,25 +184,24 @@ function App() {
             <span>📊</span>
             <span className="nav-tooltip">Dashboard</span>
           </button>
-          <button className="nav-item" title="Topology">
-            <span>🌐</span>
-            <span className="nav-tooltip">Topologia</span>
+
+          <div className="sidebar-divider" />
+
+          <button className="nav-item" title="Listar Equipamentos" onClick={btnListDevices} disabled={loading || !connected}>
+            <span>📋</span>
+            <span className="nav-tooltip">Listar Equipamentos</span>
           </button>
-          <button className="nav-item" title="Devices">
-            <span>🖥️</span>
-            <span className="nav-tooltip">Dispositivos</span>
+          <button className="nav-item" title="Organizar Layout" onClick={btnAutoLayout} disabled={loading || !connected}>
+            <span>✨</span>
+            <span className="nav-tooltip">Organizar Layout</span>
           </button>
-          <button className="nav-item" title="Terminal">
-            <span>⌨️</span>
-            <span className="nav-tooltip">Terminal</span>
+          <button className="nav-item nav-danger" title="Limpar Canvas" onClick={btnClearCanvas} disabled={loading || !connected}>
+            <span>⚠️</span>
+            <span className="nav-tooltip">Limpar Canvas</span>
           </button>
-          <button className="nav-item" title="AI Assistant">
-            <span>🤖</span>
-            <span className="nav-tooltip">Assistente IA</span>
-          </button>
-          <button className="nav-item" title="Settings">
-            <span>⚙️</span>
-            <span className="nav-tooltip">Configurações</span>
+          <button className="nav-item nav-warning" title="Teste Direto MCP" onClick={btnTestDirect} disabled={loading || !connected}>
+            <span>🔧</span>
+            <span className="nav-tooltip">Teste Direto MCP</span>
           </button>
         </nav>
 
@@ -224,6 +223,27 @@ function App() {
             </div>
           </div>
           <div className="header-right">
+            <div className="header-badge stat-badge">
+              <span className="badge-icon blue">🖥️</span>
+              <span className="badge-label">Dispositivos</span>
+              <span className="badge-value">{stats.devices}</span>
+            </div>
+            <div className="header-badge stat-badge">
+              <span className="badge-icon orange">🔗</span>
+              <span className="badge-label">Links</span>
+              <span className="badge-value">{stats.links}</span>
+            </div>
+            <div className="header-badge stat-badge">
+              <span className="badge-icon green">📡</span>
+              <span className="badge-label">Status</span>
+              <span className="badge-value">{connected ? 'Online' : 'Offline'}</span>
+            </div>
+            <div className="header-badge stat-badge">
+              <span className="badge-icon blue">⚡</span>
+              <span className="badge-label">Comandos</span>
+              <span className="badge-value">{stats.commands}</span>
+            </div>
+            <div className="header-badge-divider" />
             <div className="header-badge">
               <div className={`dot ${connected ? 'online' : 'offline'}`} />
               {connected ? 'MCP Conectado' : 'Desconectado'}
@@ -233,37 +253,7 @@ function App() {
 
         {/* ─── Scrollable Content ─── */}
         <div className="content-area">
-          {/* ─── Stat Cards ─── */}
-          <div className="stat-cards">
-            <div className="stat-card">
-              <div className="stat-icon blue">🖥️</div>
-              <div className="stat-info">
-                <span className="stat-label">Dispositivos</span>
-                <span className="stat-value">{stats.devices}</span>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon orange">🔗</div>
-              <div className="stat-info">
-                <span className="stat-label">Links Ativos</span>
-                <span className="stat-value">{stats.links}</span>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon green">📡</div>
-              <div className="stat-info">
-                <span className="stat-label">Status</span>
-                <span className="stat-value">{connected ? 'Online' : 'Offline'}</span>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon blue">⚡</div>
-              <div className="stat-info">
-                <span className="stat-label">Comandos</span>
-                <span className="stat-value">{stats.commands}</span>
-              </div>
-            </div>
-          </div>
+
 
           {/* ─── Dashboard Grid ─── */}
           <div className="dashboard-grid">
@@ -294,20 +284,7 @@ function App() {
                     ✨ Executar Magia
                   </button>
                 </div>
-                <div className="quick-actions" style={{ marginTop: 14 }}>
-                  <button className="btn btn-ghost btn-sm" onClick={btnListDevices} disabled={loading || !connected}>
-                    📋 Listar Equipamentos
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={btnAutoLayout} disabled={loading || !connected}>
-                    ✨ Organizar Layout
-                  </button>
-                  <button className="btn btn-danger btn-sm" onClick={btnClearCanvas} disabled={loading || !connected}>
-                    ⚠️ Limpar Canvas
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={btnTestDirect} disabled={loading || !connected} style={{borderColor: '#f59e0b', color: '#f59e0b'}}>
-                    🔧 Teste Direto MCP
-                  </button>
-                </div>
+
               </div>
             </div>
 
