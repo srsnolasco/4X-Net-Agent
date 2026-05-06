@@ -22,6 +22,11 @@ function App() {
     commands: 0,
   });
 
+  // Lista detalhada de equipamentos
+  const [deviceList, setDeviceList] = useState<any[]>([]);
+  const [linkList, setLinkList] = useState<any[]>([]);
+  const [viewMode, setViewMode] = useState<'devices' | 'links'>('devices');
+
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,20 +96,30 @@ function App() {
           if (line.trim()) addLog(`[OUTPUT] ${line}`);
         });
       } else {
-        // Objeto JSON formatado "human-readable"
-        const formatted = formatHumanReadable(parsedResult);
-        const lines = formatted.split('\n');
-        lines.forEach(line => {
-          if (line.trim()) addLog(`[OUTPUT] ${line}`);
-        });
+        // Se for o JSON de topologia, mostramos um resumo amigável no terminal
+        if (toolName === 'pt_query_topology') {
+          addLog(`[OUTPUT] Topografia capturada com sucesso.`);
+          addLog(`[OUTPUT] Dispositivos detectados: ${parsedResult.devices?.length || 0}`);
+          addLog(`[OUTPUT] Conexões detectadas: ${parsedResult.links?.length || 0}`);
+          addLog(`[OUTPUT] (Dados detalhados disponíveis no painel Mapa de Topologia)`);
+        } else {
+          // Objeto JSON formatado "human-readable"
+          const formatted = formatHumanReadable(parsedResult);
+          const lines = formatted.split('\n');
+          lines.forEach(line => {
+            if (line.trim()) addLog(`[OUTPUT] ${line}`);
+          });
+        }
 
-        // Atualiza estatísticas se for consulta de topologia
+        // Atualiza estatísticas e listas se for consulta de topologia
         if (toolName === 'pt_query_topology' && parsedResult) {
           if (parsedResult.devices) {
             setStats(prev => ({ ...prev, devices: parsedResult.devices.length || 0 }));
+            setDeviceList(parsedResult.devices);
           }
           if (parsedResult.links) {
             setStats(prev => ({ ...prev, links: parsedResult.links.length || 0 }));
+            setLinkList(parsedResult.links);
           }
         }
       }
@@ -325,6 +340,103 @@ function App() {
                     Enviar
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* ─── Topology Map Card ─── */}
+            <div className="card topology-section">
+              <div className="card-header">
+                <div className="card-title">
+                  <span className="card-title-icon">🌐</span>
+                  Mapa de Topologia
+                </div>
+                <div className="card-tabs">
+                  <button 
+                    className={`tab-btn ${viewMode === 'devices' ? 'active' : ''}`}
+                    onClick={() => setViewMode('devices')}
+                  >
+                    Equipamentos
+                  </button>
+                  <button 
+                    className={`tab-btn ${viewMode === 'links' ? 'active' : ''}`}
+                    onClick={() => setViewMode('links')}
+                  >
+                    Conexões
+                  </button>
+                </div>
+              </div>
+              <div className="card-body">
+                {viewMode === 'devices' ? (
+                  deviceList.length === 0 ? (
+                    <div className="empty-state">
+                      Nenhum equipamento listado. Clique em "Listar Equipamentos" na barra lateral.
+                    </div>
+                  ) : (
+                    <div className="table-container">
+                      <table className="topology-table">
+                        <thead>
+                          <tr>
+                            <th>Equipamento</th>
+                            <th>Modelo</th>
+                            <th>Portas Ocupadas</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {deviceList.map((dev, idx) => (
+                            <tr key={idx}>
+                              <td>
+                                <span className="device-name">{dev.name}</span>
+                              </td>
+                              <td>{dev.model}</td>
+                              <td>
+                                <div className="port-tags">
+                                  {dev.ports && dev.ports.length > 0 ? (
+                                    dev.ports.map((p: any, pIdx: number) => (
+                                      <span key={pIdx} className="port-tag">{p.name}</span>
+                                    ))
+                                  ) : (
+                                    <span className="no-ports">Nenhuma porta conectada</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                ) : (
+                  linkList.length === 0 ? (
+                    <div className="empty-state">
+                      Nenhuma conexão detectada.
+                    </div>
+                  ) : (
+                    <div className="table-container">
+                      <table className="topology-table">
+                        <thead>
+                          <tr>
+                            <th>Origem</th>
+                            <th>Porta</th>
+                            <th style={{textAlign: 'center'}}>→</th>
+                            <th>Destino</th>
+                            <th>Porta</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {linkList.map((link, idx) => (
+                            <tr key={idx}>
+                              <td><span className="device-name">{link.aDevice}</span></td>
+                              <td><span className="port-tag">{link.aPort}</span></td>
+                              <td style={{textAlign: 'center', opacity: 0.5}}>🔗</td>
+                              <td><span className="device-name">{link.bDevice}</span></td>
+                              <td><span className="port-tag">{link.bPort}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                )}
               </div>
             </div>
 

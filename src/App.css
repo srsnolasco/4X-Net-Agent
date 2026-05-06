@@ -440,6 +440,36 @@ body {
   gap: 6px;
 }
 
+.card-tabs {
+  display: flex;
+  background: var(--gray-900);
+  padding: 3px;
+  border-radius: 8px;
+  gap: 4px;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--gray-400);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: var(--gray-200);
+}
+
+.tab-btn.active {
+  background: var(--gray-750);
+  color: var(--blue-400);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
 .card-body {
   padding: 20px;
   flex: 1;
@@ -572,7 +602,11 @@ body {
 
 /* ─── Direct Command Section ─── */
 .direct-command {
-  grid-column: 1 / -1;
+  grid-column: span 1;
+}
+
+.topology-section {
+  grid-column: span 1;
 }
 
 .command-row {
@@ -787,4 +821,71 @@ body {
   .header-badge-divider {
     display: none;
   }
+}
+/* ─── Topology Table ─── */
+.topology-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.topology-table th {
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--gray-400);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.topology-table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: var(--gray-200);
+  vertical-align: middle;
+}
+
+.device-name {
+  font-weight: 700;
+  color: var(--blue-400);
+}
+
+.port-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.port-tag {
+  background: rgba(26,122,255,0.1);
+  color: var(--blue-300);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  border: 1px solid rgba(26,122,255,0.15);
+}
+
+.no-ports {
+  font-size: 11px;
+  color: var(--gray-600);
+  font-style: italic;
+}
+
+.empty-state {
+  padding: 40px;
+  text-align: center;
+  color: var(--gray-500);
+  font-size: 13px;
+  font-style: italic;
+  background: rgba(0,0,0,0.1);
+  border-radius: var(--radius-sm);
+  border: 1px dashed rgba(255,255,255,0.05);
+}
+
+.table-container {
+  max-height: 250px;
+  overflow-y: auto;
 }
