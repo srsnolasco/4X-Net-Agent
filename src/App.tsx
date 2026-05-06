@@ -7,14 +7,21 @@ function App() {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
-  
+
   // Novos estados para o input de comando direto
   const [customDevice, setCustomDevice] = useState('R1');
   const [customCommand, setCustomCommand] = useState('');
-  
+
   // Estado para o input de texto livre (Linguagem Natural / IA)
   const [naturalPrompt, setNaturalPrompt] = useState('');
-  
+
+  // Stats simulados (poderiam vir do MCP futuramente)
+  const [stats, setStats] = useState({
+    devices: 0,
+    links: 0,
+    commands: 0,
+  });
+
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,7 +31,7 @@ function App() {
         await initSession();
         setConnected(true);
         addLog('[SUCCESS] Conectado ao servidor MCP (porta 39001)');
-        
+
         // Verifica o status da ponte com o PT
         await handleCallTool('pt_bridge_status', {}, 'Verificando status da Ponte PT...');
       } catch (err: any) {
@@ -47,11 +54,13 @@ function App() {
   const handleCallTool = async (toolName: string, args: any = {}, startMsg?: string) => {
     if (startMsg) addLog(`[CMD] ${startMsg}`);
     else addLog(`[CMD] Executando ${toolName}...`);
-    
+
     setLoading(true);
+    setStats(prev => ({ ...prev, commands: prev.commands + 1 }));
+
     try {
       const result = await callMcpTool(toolName, args);
-      
+
       // Se for string, tentamos ver se é um JSON disfarçado
       let parsedResult = result;
       if (typeof result === 'string') {
@@ -88,6 +97,16 @@ function App() {
         lines.forEach(line => {
           if (line.trim()) addLog(`[OUTPUT] ${line}`);
         });
+
+        // Atualiza estatísticas se for consulta de topologia
+        if (toolName === 'pt_query_topology' && parsedResult) {
+          if (parsedResult.devices) {
+            setStats(prev => ({ ...prev, devices: parsedResult.devices.length || 0 }));
+          }
+          if (parsedResult.links) {
+            setStats(prev => ({ ...prev, links: parsedResult.links.length || 0 }));
+          }
+        }
       }
     } catch (err: any) {
       addLog(`[ERROR] ${err.message}`);
@@ -104,12 +123,16 @@ function App() {
       handleCallTool('pt_clear_canvas', {}, 'Limpando o projeto...');
     }
   };
-  
 
   const btnExecuteCustom = () => {
     if (!customCommand.trim()) return;
     handleCallTool('pt_run_cli', { device: customDevice, command: "\n" + customCommand + "\n" }, `Enviando comando para ${customDevice}...`);
     setCustomCommand('');
+  };
+
+  // Botão de teste direto — chama MCP sem IA para diagnóstico
+  const btnTestDirect = () => {
+    handleCallTool('pt_add_device', { model: '2911', name: 'TestRouter' }, 'TESTE DIRETO: Criando roteador TestRouter...');
   };
 
   const btnSendNaturalCommand = async () => {
@@ -122,120 +145,250 @@ function App() {
     try {
       // Puxa a chave da OpenAI injetada pelo Vite (lembre de criar o .env)
       const apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
-      
+      addLog(`[DEBUG] API Key presente: ${apiKey ? 'Sim (' + apiKey.substring(0,12) + '...)' : 'NÃO'}`);
+
       // Envia o prompt para a OpenAI resolver
       await processNaturalLanguage(promptBackup, apiKey, addLog);
-      
+
     } catch (err: any) {
       addLog(`[ERROR] ${err.message}`);
+      if (err.stack) addLog(`[ERROR-STACK] ${err.stack.split('\n').slice(0,3).join(' | ')}`);
     } finally {
       setLoading(false);
     }
   };
 
+  const getLogClass = (log: string): string => {
+    if (log.includes('[ERROR]') || log.includes('[IA-ERROR]')) return 'error';
+    if (log.includes('[SUCCESS]')) return 'success';
+    if (log.includes('[IA]')) return 'ai';
+    if (log.includes('[USER]')) return 'user';
+    if (log.includes('[CMD]')) return 'cmd';
+    return '';
+  };
+
   return (
-    <div className="dashboard">
-      <header>
-        <h1>4X NET AGENT</h1>
-        <div className={`status-badge`}>
-          <div className={`status-dot ${connected ? '' : 'offline'}`}></div>
-          {connected ? 'MCP CONECTADO' : 'DESCONECTADO'}
+    <div className="app-shell">
+      {/* ─── Sidebar ─── */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" fill="white"/>
+            <path d="M2 17l10 5 10-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M2 12l10 5 10-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </div>
-      </header>
 
-      <section className="panel quick-ops-panel">
-        <div className="button-group">
-          <button onClick={btnListDevices} disabled={loading || !connected}>
-            <span>📋 Listar Equipamentos</span>
+        <nav className="sidebar-nav">
+          <button className="nav-item active" title="Dashboard">
+            <span>📊</span>
+            <span className="nav-tooltip">Dashboard</span>
           </button>
-          <button onClick={btnAutoLayout} disabled={loading || !connected}>
-            <span>✨ Organizar Layout</span>
+          <button className="nav-item" title="Topology">
+            <span>🌐</span>
+            <span className="nav-tooltip">Topologia</span>
           </button>
-          <button className="danger" onClick={btnClearCanvas} disabled={loading || !connected}>
-            <span>⚠️ Limpar Canvas (Nuke)</span>
+          <button className="nav-item" title="Devices">
+            <span>🖥️</span>
+            <span className="nav-tooltip">Dispositivos</span>
           </button>
-        </div>
-      </section>
+          <button className="nav-item" title="Terminal">
+            <span>⌨️</span>
+            <span className="nav-tooltip">Terminal</span>
+          </button>
+          <button className="nav-item" title="AI Assistant">
+            <span>🤖</span>
+            <span className="nav-tooltip">Assistente IA</span>
+          </button>
+          <button className="nav-item" title="Settings">
+            <span>⚙️</span>
+            <span className="nav-tooltip">Configurações</span>
+          </button>
+        </nav>
 
-      <section className="natural-input-section panel">
-        <h2>Assistente de Rede (Linguagem Natural)</h2>
-        <div className="natural-input-box">
-          <input 
-            type="text" 
-            value={naturalPrompt} 
-            onChange={(e) => setNaturalPrompt(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && btnSendNaturalCommand()}
-            placeholder="Digite livremente a mudança que deseja. Ex: 'Adicione um Switch SW4 e ligue no R1'"
-            className="natural-input"
-          />
-          <button className="primary-btn" onClick={btnSendNaturalCommand} disabled={loading || !naturalPrompt.trim()}>
-            <span>✨ EXECUTAR MAGIA</span>
-          </button>
-        </div>
-      </section>
-
-      <main className="grid">
-        <section className="panel">
-          <h2>Execução Direta</h2>
-          <div className="custom-command-box">
-            <div className="input-group">
-              <label>Alvo:</label>
-              <input 
-                type="text" 
-                value={customDevice} 
-                onChange={(e) => setCustomDevice(e.target.value)} 
-                placeholder="Ex: R1, SW1..."
-                className="device-input"
-              />
-            </div>
-            <div className="input-group" style={{ flex: 1 }}>
-              <label>Comando / Ação:</label>
-              <input 
-                type="text" 
-                value={customCommand} 
-                onChange={(e) => setCustomCommand(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && btnExecuteCustom()}
-                placeholder="Ex: show ip int brief"
-                className="command-input"
-              />
-            </div>
-            <button onClick={btnExecuteCustom} disabled={loading || !connected || !customCommand.trim()}>
-              <span>ENVIAR</span>
-            </button>
+        <div className="sidebar-bottom">
+          <div className="sidebar-status">
+            <div className={`status-indicator ${connected ? 'online' : 'offline'}`} />
           </div>
-        </section>
+        </div>
+      </aside>
 
-        <section className="panel terminal-panel">
-          <h2 style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
-            <span>Terminal Output {loading && <div className="loader"></div>}</span>
-            <button 
-              onClick={() => setLogs([])} 
-              style={{ 
-                position: 'absolute', 
-                left: '50%', 
-                transform: 'translateX(-50%)',
-                fontSize: '0.7rem',
-                padding: '0.2rem 0.6rem',
-                border: '1px solid var(--border)',
-                color: 'var(--text-muted)'
-              }}
-              title="Limpar o terminal"
-            >
-              🧹 Clear Screen
-            </button>
-          </h2>
-          <div className="terminal" ref={terminalRef}>
-            {logs.map((log, idx) => (
-              <div key={idx} className="terminal-line">
-                <span className="terminal-prefix">{'>'}</span> 
-                <span style={{color: log.includes('[ERROR]') ? 'var(--danger)' : log.includes('[SUCCESS]') ? 'var(--accent)' : 'inherit'}}>
-                  {log}
-                </span>
+      {/* ─── Main ─── */}
+      <div className="main-content">
+        {/* ─── Top Header ─── */}
+        <header className="top-header">
+          <div className="header-left">
+            <div>
+              <div className="header-title">4X NET AGENT</div>
+              <div className="header-subtitle">Cisco Packet Tracer Command Center</div>
+            </div>
+          </div>
+          <div className="header-right">
+            <div className="header-badge">
+              <div className={`dot ${connected ? 'online' : 'offline'}`} />
+              {connected ? 'MCP Conectado' : 'Desconectado'}
+            </div>
+          </div>
+        </header>
+
+        {/* ─── Scrollable Content ─── */}
+        <div className="content-area">
+          {/* ─── Stat Cards ─── */}
+          <div className="stat-cards">
+            <div className="stat-card">
+              <div className="stat-icon blue">🖥️</div>
+              <div className="stat-info">
+                <span className="stat-label">Dispositivos</span>
+                <span className="stat-value">{stats.devices}</span>
               </div>
-            ))}
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon orange">🔗</div>
+              <div className="stat-info">
+                <span className="stat-label">Links Ativos</span>
+                <span className="stat-value">{stats.links}</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon green">📡</div>
+              <div className="stat-info">
+                <span className="stat-label">Status</span>
+                <span className="stat-value">{connected ? 'Online' : 'Offline'}</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon blue">⚡</div>
+              <div className="stat-info">
+                <span className="stat-label">Comandos</span>
+                <span className="stat-value">{stats.commands}</span>
+              </div>
+            </div>
           </div>
-        </section>
-      </main>
+
+          {/* ─── Dashboard Grid ─── */}
+          <div className="dashboard-grid">
+            {/* ─── AI Assistant Card ─── */}
+            <div className="card ai-section">
+              <div className="card-header">
+                <div className="card-title">
+                  <span className="card-title-icon">🤖</span>
+                  Assistente de Rede — Linguagem Natural
+                </div>
+                {loading && <div className="loader" />}
+              </div>
+              <div className="card-body">
+                <div className="ai-input-wrapper">
+                  <input
+                    type="text"
+                    className="ai-input"
+                    value={naturalPrompt}
+                    onChange={(e) => setNaturalPrompt(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && btnSendNaturalCommand()}
+                    placeholder="Digite livremente. Ex: 'Adicione um Switch SW4 e ligue ao R1'"
+                  />
+                  <button
+                    className="btn btn-orange"
+                    onClick={btnSendNaturalCommand}
+                    disabled={loading || !naturalPrompt.trim()}
+                  >
+                    ✨ Executar Magia
+                  </button>
+                </div>
+                <div className="quick-actions" style={{ marginTop: 14 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={btnListDevices} disabled={loading || !connected}>
+                    📋 Listar Equipamentos
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={btnAutoLayout} disabled={loading || !connected}>
+                    ✨ Organizar Layout
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={btnClearCanvas} disabled={loading || !connected}>
+                    ⚠️ Limpar Canvas
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={btnTestDirect} disabled={loading || !connected} style={{borderColor: '#f59e0b', color: '#f59e0b'}}>
+                    🔧 Teste Direto MCP
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ─── Direct Command Card ─── */}
+            <div className="card direct-command">
+              <div className="card-header">
+                <div className="card-title">
+                  <span className="card-title-icon">⌨️</span>
+                  Execução Direta de Comandos
+                </div>
+              </div>
+              <div className="card-body">
+                <div className="command-row">
+                  <div className="field field-device">
+                    <label>Alvo</label>
+                    <input
+                      type="text"
+                      value={customDevice}
+                      onChange={(e) => setCustomDevice(e.target.value)}
+                      placeholder="R1"
+                    />
+                  </div>
+                  <div className="field field-grow">
+                    <label>Comando / Ação</label>
+                    <input
+                      type="text"
+                      value={customCommand}
+                      onChange={(e) => setCustomCommand(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && btnExecuteCustom()}
+                      placeholder="Ex: show ip int brief"
+                    />
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={btnExecuteCustom}
+                    disabled={loading || !connected || !customCommand.trim()}
+                  >
+                    Enviar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ─── Terminal Card ─── */}
+            <div className="terminal-section">
+              <div className="card">
+                <div className="card-header">
+                  <div className="card-title">
+                    <span className="card-title-icon">🖥️</span>
+                    Terminal Output
+                    {loading && <div className="loader" />}
+                  </div>
+                  <div className="card-actions">
+                    <button className="clear-btn" onClick={() => setLogs([])}>
+                      🧹 Limpar
+                    </button>
+                  </div>
+                </div>
+                <div className="card-body">
+                  <div className="terminal" ref={terminalRef}>
+                    {logs.length === 0 && (
+                      <div className="terminal-line" style={{ opacity: 0.3 }}>
+                        <span className="terminal-prefix">❯</span>
+                        <span className="terminal-text">Aguardando comandos...</span>
+                      </div>
+                    )}
+                    {logs.map((log, idx) => (
+                      <div key={idx} className="terminal-line">
+                        <span className="terminal-prefix">❯</span>
+                        <span className={`terminal-text ${getLogClass(log)}`}>
+                          {log}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
