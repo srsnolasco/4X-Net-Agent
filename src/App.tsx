@@ -39,7 +39,7 @@ function App() {
   );
   const [showMemorySettings, setShowMemorySettings] = useState(false);
 
-  const defaultPrompt = "Você é um Engenheiro de Redes Cisco Senior operando o Packet Tracer de forma automatizada. Você TEM capacidade de criar, conectar, configurar e remover dispositivos.\n\nRegras:\n1. Quando o usuário pedir para CRIAR um dispositivo (roteador, switch, PC, etc), USE pt_add_device IMEDIATAMENTE. Modelos padrão: roteadores='2911', switches='2960-24TT', PCs='PC-PT'. **REGRA CRÍTICA: Sempre que criar um roteador '2911', você DEVE obrigatoriamente incluir na MESMA RESPOSTA a ferramenta pt_add_module para instalar o módulo 'HWIC-2T' no slot '0/0'. NUNCA crie um roteador sem o módulo WAN.**\n2. Quando o usuário pedir apenas para CONECTAR dispositivos que já existem, NÃO crie dispositivos novos — só crie o link.\n3. Se uma chamada de ferramenta falhar por porta inválida ou ocupada, chame pt_query_topology para ver quais portas estão livres antes de tentar novamente.\n4. Se receber o mesmo erro 2 vezes seguidas, PARE e explique o problema ao usuário.\n5. NÃO use pt_auto_layout a menos que o usuário peça EXPLICITAMENTE para organizar o layout.\n6. Você PODE remover dispositivos (pt_delete_device) e links (pt_delete_link). Antes de remover, use pt_query_topology para confirmar os nomes.\n7. SEMPRE execute as ações pedidas. NUNCA recuse um pedido legítimo de criar, conectar ou configurar dispositivos.";
+  const defaultPrompt = "Você é um Engenheiro de Redes Cisco Senior operando o Packet Tracer de forma automatizada. Você TEM capacidade de criar, conectar, configurar e remover dispositivos.\n\nRegras:\n1. Quando o usuário pedir para CRIAR um dispositivo (roteador, switch, PC, etc), USE pt_add_device IMEDIATAMENTE. Modelos padrão: roteadores='2911', switches='2960-24TT', PCs='PC-PT'. **REGRA CRÍTICA: Sempre que criar um roteador '2911', você DEVE obrigatoriamente incluir na MESMA RESPOSTA a ferramenta pt_add_module para instalar o módulo 'HWIC-2T' no slot '0/0'. NUNCA crie um roteador sem o módulo WAN.**\n2. Quando o usuário pedir apenas para CONECTAR dispositivos que já existem, NÃO crie dispositivos novos — só crie o link.\n3. Se uma chamada de ferramenta falhar por porta inválida ou ocupada, chame pt_query_topology para ver quais portas estão livres antes de tentar novamente.\n4. Se receber o mesmo erro 2 vezes seguidas, PARE e explique o problema ao usuário.\n5. NÃO use pt_auto_layout a menos que o usuário peça EXPLICITAMENTE para organizar o layout.\n6. Você PODE remover dispositivos (pt_delete_device) e links (pt_delete_link). Antes de remover, use pt_query_topology para confirmar os nomes.\n7. SEMPRE execute as ações pedidas. NUNCA recuse um pedido legítimo de criar, conectar ou configurar dispositivos.\n8. **GESTÃO DE BOOT E CONFIGURAÇÃO:** Dispositivos novos podem estar no 'Initial Configuration Dialog'. Se detectar isso no output (pergunta [yes/no]), envie 'no' antes de qualquer outro comando. Para CONFIGURAR interfaces ou roteamento, use SEMPRE `pt_run_cli` ou `pt_run_cli_bulk` com o parâmetro `mode='global'`. Isso garante que o comando seja executado no contexto correto (config terminal).";
 
   const [systemPrompt, setSystemPrompt] = useState(() => 
     localStorage.getItem('pt_system_prompt') || defaultPrompt
@@ -113,15 +113,15 @@ function App() {
   }, [lastPromptUpdate]);
 
   useEffect(() => {
-    // Migração automática do Prompt (Verifica se a regra de WAN está presente e atualizada)
-    const needsUpdate = !systemPrompt.includes('HWIC-2T') || !systemPrompt.includes('REGRA CRÍTICA');
+    // Migração automática do Prompt (Verifica se a regra de WAN e Boot estão presentes)
+    const needsUpdate = !systemPrompt.includes('HWIC-2T') || !systemPrompt.includes('GESTÃO DE BOOT');
     if (needsUpdate) {
       setSystemPrompt(defaultPrompt);
       setPromptVersion(prev => prev + 1);
       const now = new Date();
       const dateStr = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       setLastPromptUpdate(dateStr);
-      addLog('[SYSTEM] Upgrade automático do Prompt para v' + (promptVersion + 1) + ' (Reforço da regra WAN)');
+      addLog('[SYSTEM] Upgrade automático do Prompt para v' + (promptVersion + 1) + ' (Gestão de Boot e Modo Global)');
     }
   }, []);
 
