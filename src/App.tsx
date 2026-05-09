@@ -39,6 +39,25 @@ function App() {
   );
   const [showMemorySettings, setShowMemorySettings] = useState(false);
 
+  const defaultPrompt = "Você é um Engenheiro de Redes Cisco Senior operando o Packet Tracer de forma automatizada. Você TEM capacidade de criar, conectar, configurar e remover dispositivos.\n\nRegras:\n1. Quando o usuário pedir para CRIAR um dispositivo (roteador, switch, PC, etc), USE pt_add_device IMEDIATAMENTE. Modelos padrão: roteadores='2911', switches='2960-24TT', PCs='PC-PT'. **REGRA CRÍTICA: Sempre que criar um roteador '2911', você DEVE obrigatoriamente incluir na MESMA RESPOSTA a ferramenta pt_add_module para instalar o módulo 'HWIC-2T' no slot '0/0'. NUNCA crie um roteador sem o módulo WAN.**\n2. Quando o usuário pedir apenas para CONECTAR dispositivos que já existem, NÃO crie dispositivos novos — só crie o link.\n3. Se uma chamada de ferramenta falhar por porta inválida ou ocupada, chame pt_query_topology para ver quais portas estão livres antes de tentar novamente.\n4. Se receber o mesmo erro 2 vezes seguidas, PARE e explique o problema ao usuário.\n5. NÃO use pt_auto_layout a menos que o usuário peça EXPLICITAMENTE para organizar o layout.\n6. Você PODE remover dispositivos (pt_delete_device) e links (pt_delete_link). Antes de remover, use pt_query_topology para confirmar os nomes.\n7. SEMPRE execute as ações pedidas. NUNCA recuse um pedido legítimo de criar, conectar ou configurar dispositivos.";
+
+  const [systemPrompt, setSystemPrompt] = useState(() => 
+    localStorage.getItem('pt_system_prompt') || defaultPrompt
+  );
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  
+  // Estados para versionamento do Prompt
+  const [promptVersion, setPromptVersion] = useState(() => 
+    parseInt(localStorage.getItem('pt_prompt_version') || '0')
+  );
+  const [promptHistory, setPromptHistory] = useState<any[]>(() => 
+    JSON.parse(localStorage.getItem('pt_prompt_history') || '[]')
+  );
+  const [lastPromptUpdate, setLastPromptUpdate] = useState(() => 
+    localStorage.getItem('pt_prompt_last_update') || 'Original'
+  );
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -77,6 +96,35 @@ function App() {
     localStorage.setItem('pt_max_memory', JSON.stringify(maxMemory));
   }, [maxMemory]);
 
+  useEffect(() => {
+    localStorage.setItem('pt_system_prompt', systemPrompt);
+  }, [systemPrompt]);
+
+  useEffect(() => {
+    localStorage.setItem('pt_prompt_version', promptVersion.toString());
+  }, [promptVersion]);
+
+  useEffect(() => {
+    localStorage.setItem('pt_prompt_history', JSON.stringify(promptHistory));
+  }, [promptHistory]);
+
+  useEffect(() => {
+    localStorage.setItem('pt_prompt_last_update', lastPromptUpdate);
+  }, [lastPromptUpdate]);
+
+  useEffect(() => {
+    // Migração automática do Prompt (Verifica se a regra de WAN está presente e atualizada)
+    const needsUpdate = !systemPrompt.includes('HWIC-2T') || !systemPrompt.includes('REGRA CRÍTICA');
+    if (needsUpdate) {
+      setSystemPrompt(defaultPrompt);
+      setPromptVersion(prev => prev + 1);
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      setLastPromptUpdate(dateStr);
+      addLog('[SYSTEM] Upgrade automático do Prompt para v' + (promptVersion + 1) + ' (Reforço da regra WAN)');
+    }
+  }, []);
+
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, msg]);
   };
@@ -87,7 +135,6 @@ function App() {
 
     setLoading(true);
     setStats(prev => ({ ...prev, commands: prev.commands + 1 }));
-
     try {
       const result = await callMcpTool(toolName, args);
 
@@ -148,12 +195,38 @@ function App() {
           }
         }
       }
+      return result; // Importante para o processNaturalLanguage
     } catch (err: any) {
       addLog(`[ERROR] ${err.message}`);
+      throw err;
     } finally {
       setLoading(false);
     }
   };
+
+  const handleSavePrompt = () => {
+    const savedPrompt = localStorage.getItem('pt_system_prompt') || defaultPrompt;
+    
+    if (systemPrompt !== savedPrompt) {
+      const nextVersion = promptVersion + 1;
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      
+      const newEntry = {
+        version: nextVersion,
+        prompt: systemPrompt,
+        date: dateStr
+      };
+      
+      setPromptVersion(nextVersion);
+      setPromptHistory(prev => [newEntry, ...prev]);
+      setLastPromptUpdate(dateStr);
+      addLog(`[SYSTEM] Prompt atualizado para v${nextVersion}`);
+    }
+    
+    setShowPromptModal(false);
+  };
+
 
   // Funções pré-programadas para os botões
   const btnListDevices = () => handleCallTool('pt_query_topology', {}, 'Consultando equipamentos ativos na topologia');
@@ -183,16 +256,24 @@ function App() {
     setLoading(true);
 
     try {
-      // Puxa a chave da OpenAI injetada pelo Vite (lembre de criar o .env)
       const apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
       addLog(`[DEBUG] API Key presente: ${apiKey ? 'Sim (' + apiKey.substring(0,12) + '...)' : 'NÃO'}`);
 
-      // Filtra o histórico para respeitar o limite de memória (pares de mensagens)
-      // Mantemos o system prompt separado ou deixamos o ai.ts cuidar disso
-      const historyToPass = chatHistory.slice(-(maxMemory * 2));
+      // Helper para fatiar o histórico sem quebrar cadeias de tool_calls
+      // O OpenAI exige que mensagens 'tool' sigam imediatamente um 'assistant' com 'tool_calls'
+      const getSafeHistory = (rawHistory: any[], limit: number) => {
+        let slice = rawHistory.slice(-(limit * 2));
+        // Se o primeiro item do fatiamento for uma resposta de ferramenta,
+        // precisamos remover até encontrar uma mensagem que não seja dependente.
+        while (slice.length > 0 && (slice[0].role === 'tool' || (slice[0].role === 'assistant' && slice[0].tool_calls && !slice[0].content))) {
+          slice.shift();
+        }
+        return slice;
+      };
+
+      const historyToPass = getSafeHistory(chatHistory, maxMemory);
       
-      // Envia o prompt para a OpenAI resolver
-      const updatedHistory = await processNaturalLanguage(promptBackup, apiKey, addLog, maxIterations, historyToPass);
+      const updatedHistory = await processNaturalLanguage(promptBackup, apiKey, addLog, maxIterations, historyToPass, systemPrompt);
       setChatHistory(updatedHistory);
 
     } catch (err: any) {
@@ -248,6 +329,20 @@ function App() {
               <div className="flyout-item-text">
                 <span className="flyout-item-title">Limite de loop</span>
                 <span className="flyout-item-desc">Ajuste o limite de iterações consecutivas</span>
+              </div>
+            </button>
+
+            <button 
+              className="flyout-item" 
+              onClick={() => {
+                setShowPromptModal(true);
+                setShowAgentMenu(false);
+              }}
+            >
+              <span className="flyout-item-icon">📜</span>
+              <div className="flyout-item-text">
+                <span className="flyout-item-title">Prompt do Sistema</span>
+                <span className="flyout-item-desc">Edite as instruções base do agente</span>
               </div>
             </button>
 
@@ -661,6 +756,146 @@ function App() {
                   Salvar e Fechar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Memory Settings Modal ─── */}
+      {showMemorySettings && (
+        <div className="settings-overlay">
+          <div className="settings-modal card">
+            <div className="card-header">
+              <div className="card-title">
+                <span className="card-title-icon">🧠</span>
+                Configurações de Memória
+              </div>
+              <button className="close-btn" onClick={() => setShowMemorySettings(false)}>✕</button>
+            </div>
+            <div className="card-body">
+              <div className="settings-group">
+                <label>Tamanho da Janela de Contexto (Mensagens)</label>
+                <div className="range-wrapper">
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="50" 
+                    value={maxMemory} 
+                    onChange={(e) => setMaxMemory(parseInt(e.target.value))}
+                  />
+                  <span className="range-value">{maxMemory} mensagens</span>
+                </div>
+                <p className="settings-hint">
+                  Define quantas interações passadas são enviadas para a IA. 
+                  Valores maiores permitem lembrar de conversas longas, mas consomem mais tokens.
+                </p>
+              </div>
+              <div className="settings-footer">
+                <button className="btn btn-primary" onClick={() => setShowMemorySettings(false)}>
+                  Salvar e Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── System Prompt Modal ─── */}
+      {showPromptModal && (
+        <div className="settings-overlay">
+          <div className="settings-modal card prompt-modal">
+            <div className="card-header">
+              <div className="card-title">
+                <div className="card-title-main">
+                  <span className="card-title-icon">📜</span>
+                  Instruções do Sistema
+                </div>
+                <div className="version-badge">
+                  v{promptVersion} • {lastPromptUpdate}
+                </div>
+              </div>
+              <button className="close-btn" onClick={() => setShowPromptModal(false)}>✕</button>
+            </div>
+            <div className="card-body">
+              <div className="settings-group">
+                <div className="label-row">
+                  <label>Prompt Base do Agente</label>
+                  <button className="history-btn" onClick={() => setShowHistoryModal(true)}>
+                    📜 Ver Histórico
+                  </button>
+                </div>
+                <textarea 
+                  className="prompt-textarea"
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  placeholder="Defina as regras do agente aqui..."
+                />
+                <p className="settings-hint">
+                  Essas instruções são enviadas no início de cada interação. 
+                  Você pode mudar o "tom" do agente ou adicionar regras específicas de rede aqui.
+                </p>
+              </div>
+              <div className="settings-footer">
+                <button className="btn btn-secondary" onClick={() => {
+                  if(window.confirm("Deseja resetar para o prompt padrão?")) {
+                    setSystemPrompt(defaultPrompt);
+                  }
+                }}>Resetar Padrão</button>
+                <button className="btn btn-primary" onClick={handleSavePrompt}>
+                  Salvar e Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Prompt History Modal ─── */}
+      {showHistoryModal && (
+        <div className="settings-overlay history-overlay">
+          <div className="settings-modal card history-modal">
+            <div className="card-header">
+              <div className="card-title">
+                <span className="card-title-icon">🕒</span>
+                Histórico de Versões
+              </div>
+              <button className="close-btn" onClick={() => setShowHistoryModal(false)}>✕</button>
+            </div>
+            <div className="card-body">
+              <div className="history-list">
+                <div className="history-item original">
+                  <div className="history-item-header">
+                    <span className="item-version">v0</span>
+                    <span className="item-date">Instalação</span>
+                  </div>
+                  <div className="history-item-preview">Prompt originário do sistema</div>
+                </div>
+                {promptHistory.map((entry, idx) => (
+                  <div key={idx} className="history-item">
+                    <div className="history-item-header">
+                      <span className="item-version">v{entry.version}</span>
+                      <span className="item-date">{entry.date}</span>
+                      <button className="restore-btn" onClick={() => {
+                        if(window.confirm(`Restaurar versão v${entry.version}?`)) {
+                          setSystemPrompt(entry.prompt);
+                          setShowHistoryModal(false);
+                        }
+                      }}>Restaurar</button>
+                    </div>
+                    <div className="history-item-preview">
+                      {entry.prompt.substring(0, 150)}...
+                    </div>
+                  </div>
+                ))}
+                {promptHistory.length === 0 && (
+                  <div className="empty-history">Nenhuma alteração realizada ainda.</div>
+                )}
+              </div>
+            </div>
+            <div className="settings-footer">
+              <button className="btn btn-primary" onClick={() => setShowHistoryModal(false)}>
+                Fechar
+              </button>
             </div>
           </div>
         </div>
