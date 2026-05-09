@@ -120,24 +120,27 @@ export const processNaturalLanguage = async (
   prompt: string, 
   apiKey: string, 
   onLog: (msg: string) => void,
-  maxIterations: number = 10
-) => {
+  maxIterations: number = 10,
+  history: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
+): Promise<OpenAI.Chat.Completions.ChatCompletionMessageParam[]> => {
   if (!apiKey) {
     throw new Error("Chave da OpenAI ausente! Configure VITE_OPENAI_API_KEY no arquivo .env");
   }
 
   const openai = new OpenAI({
     apiKey: apiKey,
-    dangerouslyAllowBrowser: true // Necessário porque estamos rodando no frontend (Vite)
+    dangerouslyAllowBrowser: true 
   });
 
-  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    { 
-      role: "system", 
-      content: "Você é um Engenheiro de Redes Cisco Senior operando o Packet Tracer de forma automatizada. Você TEM capacidade de criar, conectar, configurar e remover dispositivos.\n\nRegras:\n1. Quando o usuário pedir para CRIAR um dispositivo (roteador, switch, PC, etc), USE pt_add_device IMEDIATAMENTE. Modelos padrão: roteadores='2911', switches='2960-24TT', PCs='PC-PT'.\n2. Quando o usuário pedir apenas para CONECTAR dispositivos que já existem, NÃO crie dispositivos novos — só crie o link.\n3. Se uma chamada de ferramenta falhar por porta inválida ou ocupada, chame pt_query_topology para ver quais portas estão livres antes de tentar novamente.\n4. Se receber o mesmo erro 2 vezes seguidas, PARE e explique o problema ao usuário.\n5. NÃO use pt_auto_layout a menos que o usuário peça EXPLICITAMENTE para organizar o layout.\n6. Você PODE remover dispositivos (pt_delete_device) e links (pt_delete_link). Antes de remover, use pt_query_topology para confirmar os nomes.\n7. SEMPRE execute as ações pedidas. NUNCA recuse um pedido legítimo de criar, conectar ou configurar dispositivos."
-    },
-    { role: "user", content: prompt }
-  ];
+  const systemMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam = { 
+    role: "system", 
+    content: "Você é um Engenheiro de Redes Cisco Senior operando o Packet Tracer de forma automatizada. Você TEM capacidade de criar, conectar, configurar e remover dispositivos.\n\nRegras:\n1. Quando o usuário pedir para CRIAR um dispositivo (roteador, switch, PC, etc), USE pt_add_device IMEDIATAMENTE. Modelos padrão: roteadores='2911', switches='2960-24TT', PCs='PC-PT'.\n2. Quando o usuário pedir apenas para CONECTAR dispositivos que já existem, NÃO crie dispositivos novos — só crie o link.\n3. Se uma chamada de ferramenta falhar por porta inválida ou ocupada, chame pt_query_topology para ver quais portas estão livres antes de tentar novamente.\n4. Se receber o mesmo erro 2 vezes seguidas, PARE e explique o problema ao usuário.\n5. NÃO use pt_auto_layout a menos que o usuário peça EXPLICITAMENTE para organizar o layout.\n6. Você PODE remover dispositivos (pt_delete_device) e links (pt_delete_link). Antes de remover, use pt_query_topology para confirmar os nomes.\n7. SEMPRE execute as ações pedidas. NUNCA recuse um pedido legítimo de criar, conectar ou configurar dispositivos."
+  };
+
+  // Montamos a lista de mensagens garantindo o system prompt no início
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = history.some(m => m.role === 'system')
+    ? [...history, { role: "user", content: prompt }]
+    : [systemMessage, ...history, { role: "user", content: prompt }];
 
   onLog("[IA] Ponderando sobre o seu pedido...");
 
@@ -147,7 +150,7 @@ export const processNaturalLanguage = async (
     iterations++;
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini", // Um modelo muito rápido e eficiente para funções
+        model: "gpt-4o-mini", 
         messages: messages,
         tools: tools,
         tool_choice: "auto"
@@ -157,7 +160,6 @@ export const processNaturalLanguage = async (
       messages.push(msg);
 
       if (msg.tool_calls && msg.tool_calls.length > 0) {
-        // A IA decidiu chamar uma ou mais ferramentas do MCP
         for (const toolCall of msg.tool_calls) {
           const funcName = toolCall.function.name;
           const args = JSON.parse(toolCall.function.arguments);
@@ -166,7 +168,6 @@ export const processNaturalLanguage = async (
           
           let resultText = "";
           try {
-            // Repassamos a ordem da IA para o nosso servidor local do Packet Tracer
             const res = await callMcpTool(funcName, args);
             resultText = typeof res === 'string' ? res : JSON.stringify(res);
           } catch(e: any) {
@@ -174,7 +175,6 @@ export const processNaturalLanguage = async (
             onLog(`[IA-ERROR] Erro na ferramenta ${funcName}: ${e.message}`);
           }
           
-          // Devolvemos o resultado da ferramenta para a IA ver
           messages.push({
             role: "tool",
             tool_call_id: toolCall.id,
@@ -182,7 +182,6 @@ export const processNaturalLanguage = async (
           });
         }
       } else {
-        // A IA não chamou nenhuma ferramenta, então ela terminou
         wantsMore = false;
         if (msg.content) {
           onLog(`[IA] 🤖 ${msg.content}`);
@@ -197,4 +196,6 @@ export const processNaturalLanguage = async (
   if (iterations >= maxIterations) {
     onLog("[WARNING] O assistente atingiu o limite máximo de ações consecutivas (loop de proteção ativado). Verifique se ocorreu algum erro que a IA não conseguiu resolver sozinha.");
   }
+
+  return messages;
 };

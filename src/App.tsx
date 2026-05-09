@@ -26,9 +26,18 @@ function App() {
   const [deviceList, setDeviceList] = useState<any[]>([]);
   const [linkList, setLinkList] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'devices' | 'links'>('devices');
-  const [maxIterations, setMaxIterations] = useState(15);
+  const [maxIterations, setMaxIterations] = useState(() => 
+    JSON.parse(localStorage.getItem('pt_max_iterations') || '15')
+  );
   const [showSettings, setShowSettings] = useState(false);
   const [showAgentMenu, setShowAgentMenu] = useState(false);
+  const [chatHistory, setChatHistory] = useState<any[]>(() => 
+    JSON.parse(localStorage.getItem('pt_chat_history') || '[]')
+  );
+  const [maxMemory, setMaxMemory] = useState(() => 
+    JSON.parse(localStorage.getItem('pt_max_memory') || '10')
+  );
+  const [showMemorySettings, setShowMemorySettings] = useState(false);
 
   const terminalRef = useRef<HTMLDivElement>(null);
 
@@ -54,6 +63,19 @@ function App() {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
   }, [logs]);
+
+  // Sincronização com LocalStorage
+  useEffect(() => {
+    localStorage.setItem('pt_chat_history', JSON.stringify(chatHistory));
+  }, [chatHistory]);
+
+  useEffect(() => {
+    localStorage.setItem('pt_max_iterations', JSON.stringify(maxIterations));
+  }, [maxIterations]);
+
+  useEffect(() => {
+    localStorage.setItem('pt_max_memory', JSON.stringify(maxMemory));
+  }, [maxMemory]);
 
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, msg]);
@@ -165,8 +187,13 @@ function App() {
       const apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
       addLog(`[DEBUG] API Key presente: ${apiKey ? 'Sim (' + apiKey.substring(0,12) + '...)' : 'NÃO'}`);
 
+      // Filtra o histórico para respeitar o limite de memória (pares de mensagens)
+      // Mantemos o system prompt separado ou deixamos o ai.ts cuidar disso
+      const historyToPass = chatHistory.slice(-(maxMemory * 2));
+      
       // Envia o prompt para a OpenAI resolver
-      await processNaturalLanguage(promptBackup, apiKey, addLog, maxIterations);
+      const updatedHistory = await processNaturalLanguage(promptBackup, apiKey, addLog, maxIterations, historyToPass);
+      setChatHistory(updatedHistory);
 
     } catch (err: any) {
       addLog(`[ERROR] ${err.message}`);
@@ -199,6 +226,20 @@ function App() {
             <button 
               className="flyout-item" 
               onClick={() => {
+                setShowMemorySettings(true);
+                setShowAgentMenu(false);
+              }}
+            >
+              <span className="flyout-item-icon">🧠</span>
+              <div className="flyout-item-text">
+                <span className="flyout-item-title">Tamanho da Memória</span>
+                <span className="flyout-item-desc">Ajuste quantas mensagens o agente lembra</span>
+              </div>
+            </button>
+            
+            <button 
+              className="flyout-item" 
+              onClick={() => {
                 setShowSettings(true);
                 setShowAgentMenu(false);
               }}
@@ -209,15 +250,16 @@ function App() {
                 <span className="flyout-item-desc">Ajuste o limite de iterações consecutivas</span>
               </div>
             </button>
-            
+
             <button 
               className="flyout-item" 
               onClick={() => {
+                setChatHistory([]);
                 addLog("[SYSTEM] Memória do Agente reiniciada.");
                 setShowAgentMenu(false);
               }}
             >
-              <span className="flyout-item-icon">🧠</span>
+              <span className="flyout-item-icon">🧹</span>
               <div className="flyout-item-text">
                 <span className="flyout-item-title">Limpar Memória</span>
                 <span className="flyout-item-desc">Esquece o contexto da conversa atual</span>
@@ -238,6 +280,43 @@ function App() {
                 <span className="flyout-item-desc">Interrompe a tarefa em execução</span>
               </div>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Memory Settings Modal ─── */}
+      {showMemorySettings && (
+        <div className="settings-overlay">
+          <div className="card settings-modal">
+            <div className="card-header">
+              <div className="card-title">
+                <span className="card-title-icon">🧠</span>
+                Configurações de Memória
+              </div>
+              <button className="close-btn" onClick={() => setShowMemorySettings(false)}>✕</button>
+            </div>
+            <div className="card-body">
+              <div className="settings-group">
+                <label>Mensagens no Contexto: {maxMemory}</label>
+                <div className="range-wrapper">
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="40" 
+                    value={maxMemory} 
+                    onChange={(e) => setMaxMemory(parseInt(e.target.value))}
+                  />
+                  <span className="range-value">{maxMemory} msgs</span>
+                </div>
+                <p className="settings-hint">
+                  Define quantas mensagens anteriores (User + IA) são enviadas para o agente. 
+                  Valores maiores permitem conversas longas, mas aumentam o consumo de tokens.
+                </p>
+              </div>
+              <div className="settings-footer">
+                <button className="btn btn-primary" onClick={() => setShowMemorySettings(false)}>Confirmar</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
