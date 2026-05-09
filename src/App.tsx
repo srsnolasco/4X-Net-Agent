@@ -231,26 +231,22 @@ function App() {
     return device.ports.find((p: any) => p.name === portName);
   };
 
-  const getStatusColor = (link: any) => {
-    const pA = getPort(link.aDevice, link.aPort);
-    const pB = getPort(link.bDevice, link.bPort);
+  const getSinglePortStatusColor = (port: any) => {
+    if (!port) return 'gray';
     
-    if (!pA || !pB) return 'yellow';
+    const interfaceUp = port.isPortUp;
+    const linkUp = port.isProtocolUp;
     
-    // Se o protocolo estiver up, consideramos que a porta também está up
-    const upA = pA.isPortUp || pA.isProtocolUp;
-    const upB = pB.isPortUp || pB.isProtocolUp;
+    if (interfaceUp && linkUp) return 'green';
+    if (interfaceUp && !linkUp) return 'yellow';
     
-    const protoA = pA.isProtocolUp;
-    const protoB = pB.isProtocolUp;
+    // Red ONLY for administratively down. Assuming 'isAdministrativelyDown' property or similar exists 
+    // or falls back to checking if we can infer it. If not admin down, return gray.
+    if (port.isAdministrativelyDown === true || port.status === 'administratively down') {
+      return 'red';
+    }
     
-    if (upA && protoA && upB && protoB) return 'green';
-    
-    // Se a porta está fisicamente ou administrativamente down
-    if (!upA || !upB) return 'red';
-    
-    // Se a porta está UP mas o protocolo está DOWN
-    return 'yellow';
+    return 'gray'; // Down, but not administratively down
   };
 
   const handleSavePrompt = () => {
@@ -708,10 +704,11 @@ function App() {
                         <thead>
                           <tr>
                             <th>Origem</th>
+                            <th style={{textAlign: 'center'}}>Status</th>
                             <th>Porta</th>
                             <th>IP</th>
-                            <th style={{textAlign: 'center'}}>Status</th>
                             <th>Destino</th>
+                            <th style={{textAlign: 'center'}}>Status</th>
                             <th>Porta</th>
                             <th>IP</th>
                           </tr>
@@ -720,15 +717,20 @@ function App() {
                           {linkList.map((link, idx) => {
                             const ipA = getIpString(link.aDevice, link.aPort);
                             const ipB = getIpString(link.bDevice, link.bPort);
+                            const pA = getPort(link.aDevice, link.aPort);
+                            const pB = getPort(link.bDevice, link.bPort);
                             return (
                               <tr key={idx}>
                                 <td><span className="device-name">{link.aDevice}</span></td>
+                                <td style={{textAlign: 'center'}}>
+                                  <span className={`status-dot ${getSinglePortStatusColor(pA)}`} title={getSinglePortStatusColor(pA).toUpperCase()}></span>
+                                </td>
                                 <td><span className="port-tag">{link.aPort}</span></td>
                                 <td>{ipA ? <span className="ip-badge">{ipA}</span> : <span style={{opacity: 0.2}}>-</span>}</td>
-                                <td style={{textAlign: 'center'}}>
-                                  <span className={`status-dot ${getStatusColor(link)}`} title={getStatusColor(link).toUpperCase()}></span>
-                                </td>
                                 <td><span className="device-name">{link.bDevice}</span></td>
+                                <td style={{textAlign: 'center'}}>
+                                  <span className={`status-dot ${getSinglePortStatusColor(pB)}`} title={getSinglePortStatusColor(pB).toUpperCase()}></span>
+                                </td>
                                 <td><span className="port-tag">{link.bPort}</span></td>
                                 <td>{ipB ? <span className="ip-badge">{ipB}</span> : <span style={{opacity: 0.2}}>-</span>}</td>
                               </tr>
