@@ -39,7 +39,7 @@ function App() {
   );
   const [showMemorySettings, setShowMemorySettings] = useState(false);
 
-  const defaultPrompt = "v3.1 - Você é um Engenheiro de Redes Cisco Senior operando o Packet Tracer de forma automatizada. Você TEM capacidade de criar, conectar, configurar e remover dispositivos.\n\nRegras:\n1. Quando o usuário pedir para CRIAR um dispositivo (roteador, switch, PC, etc), USE pt_add_device IMEDIATAMENTE. Modelos padrão: roteadores='2911', switches='2960-24TT', PCs='PC-PT'. **REGRA CRÍTICA: Sempre que criar um roteador '2911', você DEVE obrigatoriamente incluir na MESMA RESPOSTA a ferramenta pt_add_module para instalar o módulo 'HWIC-2T' no slot '0/0'. NUNCA crie um roteador sem o módulo WAN.**\n2. Quando o usuário pedir apenas para CONECTAR dispositivos que já existem, NÃO crie dispositivos novos — só crie o link.\n3. Se uma chamada de ferramenta falhar por porta inválida ou ocupada, chame pt_query_topology para ver quais portas estão livres antes de tentar novamente.\n4. Se receber o mesmo erro 2 vezes seguidas, PARE e explique o problema ao usuário.\n5. NÃO use pt_auto_layout a menos que o usuário peça EXPLICITAMENTE para organizar o layout.\n6. Você PODE remover dispositivos (pt_delete_device) e links (pt_delete_link). Antes de remover, use pt_query_topology para confirmar os nomes.\n7. SEMPRE execute as ações pedidas. NUNCA recuse um pedido legítimo de criar, conectar ou configurar dispositivos.\n8. **GESTÃO DE BOOT E CONFIGURAÇÃO:** Dispositivos novos podem estar no 'Initial Configuration Dialog'. Se detectar isso no output (pergunta [yes/no]), envie 'no' antes de qualquer outro comando. Para CONFIGURAR interfaces ou roteamento, use SEMPRE `pt_run_cli` ou `pt_run_cli_bulk` com o parâmetro `mode='global'`. Isso garante que o comando seja executado no contexto correto (config terminal).";
+  const defaultPrompt = "v3.2 - Você é um Engenheiro de Redes Cisco Senior operando o Packet Tracer de forma automatizada. Você TEM capacidade de criar, conectar, configurar e remover dispositivos.\n\nRegras:\n1. Quando o usuário pedir para CRIAR um dispositivo (roteador, switch, PC, etc), USE pt_add_device IMEDIATAMENTE. Modelos padrão: roteadores='2911', switches='2960-24TT', PCs='PC-PT'. **REGRA CRÍTICA: Sempre que criar um roteador '2911', você DEVE obrigatoriamente incluir na MESMA RESPOSTA a ferramenta pt_add_module para instalar o módulo 'HWIC-2T' no slot '0/0'. NUNCA crie um roteador sem o módulo WAN.**\n2. Quando o usuário pedir apenas para CONECTAR dispositivos que já existem, NÃO crie dispositivos novos — só crie o link.\n3. Se uma chamada de ferramenta falhar por porta inválida ou ocupada, chame pt_query_topology para ver quais portas estão livres antes de tentar novamente.\n4. Se receber o mesmo erro 2 vezes seguidas, PARE e explique o problema ao usuário.\n5. NÃO use pt_auto_layout a menos que o usuário peça EXPLICITAMENTE para organizar o layout.\n6. Você PODE remover dispositivos (pt_delete_device) e links (pt_delete_link). Antes de remover, use pt_query_topology para confirmar os nomes.\n7. SEMPRE execute as ações pedidas. NUNCA recuse um pedido legítimo de criar, conectar ou configurar dispositivos.\n8. **GESTÃO DE BOOT E CONFIGURAÇÃO:** Dispositivos novos podem estar no 'Initial Configuration Dialog'. Se detectar isso no output (pergunta [yes/no]), envie 'no' antes de qualquer outro comando. Para CONFIGURAR interfaces ou roteamento, use SEMPRE `pt_run_cli` ou `pt_run_cli_bulk` com o parâmetro `mode='global'`. Isso garante que o comando seja executado no contexto correto (config terminal).\n9. **CONSULTAS DE TOPOLOGIA:** Sempre que o usuário fizer uma pergunta sobre qual porta está conectada a qual dispositivo, IPs, ou estado atual da rede, USE OBRIGATORIAMENTE a ferramenta `pt_query_topology` ANTES de responder. NUNCA adivinhe interfaces ou IPs.";
 
   const [systemPrompt, setSystemPrompt] = useState(() => 
     localStorage.getItem('pt_system_prompt') || defaultPrompt
@@ -113,15 +113,15 @@ function App() {
   }, [lastPromptUpdate]);
 
   useEffect(() => {
-    // Migração automática do Prompt (Verifica se a regra de WAN e Boot estão presentes)
-    const needsUpdate = !systemPrompt.includes('HWIC-2T') || !systemPrompt.includes('GESTÃO DE BOOT');
+    // Migração automática do Prompt (Verifica se as regras necessárias estão presentes)
+    const needsUpdate = !systemPrompt.includes('HWIC-2T') || !systemPrompt.includes('GESTÃO DE BOOT') || !systemPrompt.includes('CONSULTAS DE TOPOLOGIA');
     if (needsUpdate) {
       setSystemPrompt(defaultPrompt);
       setPromptVersion(prev => prev + 1);
       const now = new Date();
       const dateStr = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       setLastPromptUpdate(dateStr);
-      addLog('[SYSTEM] Upgrade automático do Prompt para v' + (promptVersion + 1) + ' (Gestão de Boot e Modo Global)');
+      addLog('[SYSTEM] Upgrade automático do Prompt para v' + (promptVersion + 1) + ' (Adicionada regra de Consultas de Topologia)');
     }
   }, []);
 
@@ -202,6 +202,55 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const maskToCidr = (mask: string) => {
+    if (!mask || mask === '0.0.0.0') return '';
+    try {
+      return '/' + mask.split('.').reduce((acc, octet) => {
+        const bin = parseInt(octet).toString(2);
+        return acc + (bin.match(/1/g) || []).length;
+      }, 0);
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const getIpString = (deviceName: string, portName: string) => {
+    const device = deviceList.find(d => d.name === deviceName);
+    if (!device || !device.ports) return null;
+    const port = device.ports.find((p: any) => p.name === portName);
+    if (!port || !port.ip || port.ip === '0.0.0.0') return null;
+    const mask = port.mask || port.subnetMask;
+    return `${port.ip}${maskToCidr(mask)}`;
+  };
+
+  const getPort = (deviceName: string, portName: string) => {
+    const device = deviceList.find(d => d.name === deviceName);
+    if (!device || !device.ports) return null;
+    return device.ports.find((p: any) => p.name === portName);
+  };
+
+  const getStatusColor = (link: any) => {
+    const pA = getPort(link.aDevice, link.aPort);
+    const pB = getPort(link.bDevice, link.bPort);
+    
+    if (!pA || !pB) return 'yellow';
+    
+    // Se o protocolo estiver up, consideramos que a porta também está up
+    const upA = pA.isPortUp || pA.isProtocolUp;
+    const upB = pB.isPortUp || pB.isProtocolUp;
+    
+    const protoA = pA.isProtocolUp;
+    const protoB = pB.isProtocolUp;
+    
+    if (upA && protoA && upB && protoB) return 'green';
+    
+    // Se a porta está fisicamente ou administrativamente down
+    if (!upA || !upB) return 'red';
+    
+    // Se a porta está UP mas o protocolo está DOWN
+    return 'yellow';
   };
 
   const handleSavePrompt = () => {
@@ -660,21 +709,31 @@ function App() {
                           <tr>
                             <th>Origem</th>
                             <th>Porta</th>
-                            <th style={{textAlign: 'center'}}>→</th>
+                            <th>IP</th>
+                            <th style={{textAlign: 'center'}}>Status</th>
                             <th>Destino</th>
                             <th>Porta</th>
+                            <th>IP</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {linkList.map((link, idx) => (
-                            <tr key={idx}>
-                              <td><span className="device-name">{link.aDevice}</span></td>
-                              <td><span className="port-tag">{link.aPort}</span></td>
-                              <td style={{textAlign: 'center', opacity: 0.5}}>🔗</td>
-                              <td><span className="device-name">{link.bDevice}</span></td>
-                              <td><span className="port-tag">{link.bPort}</span></td>
-                            </tr>
-                          ))}
+                          {linkList.map((link, idx) => {
+                            const ipA = getIpString(link.aDevice, link.aPort);
+                            const ipB = getIpString(link.bDevice, link.bPort);
+                            return (
+                              <tr key={idx}>
+                                <td><span className="device-name">{link.aDevice}</span></td>
+                                <td><span className="port-tag">{link.aPort}</span></td>
+                                <td>{ipA ? <span className="ip-badge">{ipA}</span> : <span style={{opacity: 0.2}}>-</span>}</td>
+                                <td style={{textAlign: 'center'}}>
+                                  <span className={`status-dot ${getStatusColor(link)}`} title={getStatusColor(link).toUpperCase()}></span>
+                                </td>
+                                <td><span className="device-name">{link.bDevice}</span></td>
+                                <td><span className="port-tag">{link.bPort}</span></td>
+                                <td>{ipB ? <span className="ip-badge">{ipB}</span> : <span style={{opacity: 0.2}}>-</span>}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

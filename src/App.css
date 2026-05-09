@@ -868,6 +868,66 @@ body {
   border: 1px solid rgba(26,122,255,0.15);
 }
 
+.device-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ip-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--orange-400);
+  background: rgba(255, 159, 67, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 159, 67, 0.15);
+  width: fit-content;
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+.ip-badge:hover {
+  background: rgba(255, 159, 67, 0.2);
+  border-color: var(--orange-400);
+  transform: translateY(-1px);
+}
+
+/* ─── Status Dot ─── */
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  position: relative;
+}
+
+.status-dot.green {
+  background-color: var(--success);
+  box-shadow: 0 0 10px var(--success-dim), 0 0 5px var(--success);
+}
+
+.status-dot.yellow {
+  background-color: var(--warning);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2), 0 0 5px var(--warning);
+}
+
+.status-dot.red {
+  background-color: var(--danger);
+  box-shadow: 0 0 10px var(--danger-dim), 0 0 5px var(--danger);
+}
+
+.status-dot::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .no-ports {
   font-size: 11px;
   color: var(--gray-600);
