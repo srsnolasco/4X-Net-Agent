@@ -889,3 +889,230 @@ body {
   max-height: 250px;
   overflow-y: auto;
 }
+
+/* ─── Settings Modal & Overlay ─── */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.settings-modal {
+  width: 100%;
+  max-width: 500px;
+  background: var(--gray-850);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-elevated);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: var(--gray-400);
+  font-size: 18px;
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 4px;
+}
+
+.close-btn:hover {
+  color: var(--white);
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.settings-group label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-100);
+}
+
+.range-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--gray-900);
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.range-wrapper input[type="range"] {
+  flex: 1;
+  accent-color: var(--blue-500);
+  cursor: pointer;
+}
+
+.range-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--blue-400);
+  min-width: 80px;
+  text-align: right;
+}
+
+.settings-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gray-400);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid var(--blue-500);
+}
+
+.settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ─── Agent Flyout Menu ─── */
+.agent-flyout {
+  position: absolute;
+  left: calc(var(--sidebar-width) + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 280px;
+  background: var(--gray-850);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: flyoutIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(12px);
+}
+
+@keyframes flyoutIn {
+  from { opacity: 0; transform: translateY(-50%) translateX(-12px); }
+  to { opacity: 1; transform: translateY(-50%) translateX(0); }
+}
+
+.flyout-header {
+  padding: 16px 20px;
+  background: var(--gray-900);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flyout-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--white);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.close-mini-btn {
+  background: transparent;
+  border: none;
+  color: var(--gray-400);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.flyout-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flyout-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 8px 8px 4px;
+}
+
+.flyout-item {
+  background: transparent;
+  border: none;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.flyout-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.flyout-item-icon {
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-800);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.flyout-item:hover .flyout-item-icon {
+  background: var(--gray-700);
+  transform: scale(1.05);
+}
+
+.flyout-item-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.flyout-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-100);
+}
+
+.flyout-item-desc {
+  font-size: 11px;
+  color: var(--gray-400);
+}
+
+.flyout-item.danger:hover {
+  background: var(--danger-dim);
+}
+
+.flyout-item.danger:hover .flyout-item-title {
+  color: var(--danger);
+}
+
+

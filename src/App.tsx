@@ -26,6 +26,9 @@ function App() {
   const [deviceList, setDeviceList] = useState<any[]>([]);
   const [linkList, setLinkList] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'devices' | 'links'>('devices');
+  const [maxIterations, setMaxIterations] = useState(15);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showAgentMenu, setShowAgentMenu] = useState(false);
 
   const terminalRef = useRef<HTMLDivElement>(null);
 
@@ -163,7 +166,7 @@ function App() {
       addLog(`[DEBUG] API Key presente: ${apiKey ? 'Sim (' + apiKey.substring(0,12) + '...)' : 'NÃO'}`);
 
       // Envia o prompt para a OpenAI resolver
-      await processNaturalLanguage(promptBackup, apiKey, addLog);
+      await processNaturalLanguage(promptBackup, apiKey, addLog, maxIterations);
 
     } catch (err: any) {
       addLog(`[ERROR] ${err.message}`);
@@ -184,6 +187,61 @@ function App() {
 
   return (
     <div className="app-shell">
+      {/* ─── Agent Flyout Menu ─── */}
+      {showAgentMenu && (
+        <div className="agent-flyout">
+          <div className="flyout-header">
+            <div className="flyout-title">🤖 Menu do Agente</div>
+            <button className="close-mini-btn" onClick={() => setShowAgentMenu(false)}>✕</button>
+          </div>
+          <div className="flyout-content">
+            <div className="flyout-section-label">Configuração e Controle</div>
+            <button 
+              className="flyout-item" 
+              onClick={() => {
+                setShowSettings(true);
+                setShowAgentMenu(false);
+              }}
+            >
+              <span className="flyout-item-icon">⚙️</span>
+              <div className="flyout-item-text">
+                <span className="flyout-item-title">Limite de loop</span>
+                <span className="flyout-item-desc">Ajuste o limite de iterações consecutivas</span>
+              </div>
+            </button>
+            
+            <button 
+              className="flyout-item" 
+              onClick={() => {
+                addLog("[SYSTEM] Memória do Agente reiniciada.");
+                setShowAgentMenu(false);
+              }}
+            >
+              <span className="flyout-item-icon">🧠</span>
+              <div className="flyout-item-text">
+                <span className="flyout-item-title">Limpar Memória</span>
+                <span className="flyout-item-desc">Esquece o contexto da conversa atual</span>
+              </div>
+            </button>
+
+            <button 
+              className="flyout-item danger" 
+              onClick={() => {
+                // Futura implementação de cancelar tarefa
+                addLog("[SYSTEM] Comando de parada enviado (simulado).");
+                setShowAgentMenu(false);
+              }}
+            >
+              <span className="flyout-item-icon">🛑</span>
+              <div className="flyout-item-text">
+                <span className="flyout-item-title">Parar Agente</span>
+                <span className="flyout-item-desc">Interrompe a tarefa em execução</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ─── Sidebar ─── */}
       <aside className="sidebar">
         <div className="sidebar-logo">
@@ -217,6 +275,17 @@ function App() {
           <button className="nav-item nav-warning" title="Teste Direto MCP" onClick={btnTestDirect} disabled={loading || !connected}>
             <span>🔧</span>
             <span className="nav-tooltip">Teste Direto MCP</span>
+          </button>
+          
+          <div className="sidebar-divider" />
+          
+          <button 
+            className={`nav-item ${showAgentMenu ? 'active' : ''}`} 
+            title="Menu do Agente" 
+            onClick={() => setShowAgentMenu(!showAgentMenu)}
+          >
+            <span>🤖</span>
+            <span className="nav-tooltip">Agente</span>
           </button>
         </nav>
 
@@ -478,6 +547,45 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* ─── Settings Modal ─── */}
+      {showSettings && (
+        <div className="settings-overlay">
+          <div className="settings-modal card">
+            <div className="card-header">
+              <div className="card-title">
+                <span className="card-title-icon">⚙️</span>
+                Configurações do Limite de Loop
+              </div>
+              <button className="close-btn" onClick={() => setShowSettings(false)}>✕</button>
+            </div>
+            <div className="card-body">
+              <div className="settings-group">
+                <label>Limite de Loop de Proteção (Ações Consecutivas)</label>
+                <div className="range-wrapper">
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="50" 
+                    value={maxIterations} 
+                    onChange={(e) => setMaxIterations(parseInt(e.target.value))}
+                  />
+                  <span className="range-value">{maxIterations} ações</span>
+                </div>
+                <p className="settings-hint">
+                  Aumentar este limite permite que a IA resolva tarefas mais complexas sem interrupção, 
+                  mas aumenta o risco de loops infinitos se houver erros persistentes.
+                </p>
+              </div>
+              <div className="settings-footer">
+                <button className="btn btn-primary" onClick={() => setShowSettings(false)}>
+                  Salvar e Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

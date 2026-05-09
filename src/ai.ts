@@ -119,7 +119,8 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
 export const processNaturalLanguage = async (
   prompt: string, 
   apiKey: string, 
-  onLog: (msg: string) => void
+  onLog: (msg: string) => void,
+  maxIterations: number = 10
 ) => {
   if (!apiKey) {
     throw new Error("Chave da OpenAI ausente! Configure VITE_OPENAI_API_KEY no arquivo .env");
@@ -142,9 +143,7 @@ export const processNaturalLanguage = async (
 
   let wantsMore = true;
   let iterations = 0;
-  const MAX_ITERATIONS = 6;
-
-  while (wantsMore && iterations < MAX_ITERATIONS) {
+  while (wantsMore && iterations < maxIterations) {
     iterations++;
     try {
       const response = await openai.chat.completions.create({
@@ -195,7 +194,7 @@ export const processNaturalLanguage = async (
     }
   }
 
-  if (iterations >= MAX_ITERATIONS) {
+  if (iterations >= maxIterations) {
     onLog("[WARNING] O assistente atingiu o limite máximo de ações consecutivas (loop de proteção ativado). Verifique se ocorreu algum erro que a IA não conseguiu resolver sozinha.");
   }
 };
