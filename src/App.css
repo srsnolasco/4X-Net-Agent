@@ -391,13 +391,135 @@ body {
 
 /* (stat cards removed — indicators moved to header badges) */
 
-/* ─── Grid Layout ─── */
-.dashboard-grid {
+/* ─── Tab Bar ─── */
+.main-tab-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  background: var(--gray-900);
+  padding: 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.main-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--gray-400);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.1px;
+}
+
+.main-tab-btn:hover {
+  color: var(--gray-200);
+  background: rgba(255,255,255,0.05);
+}
+
+.main-tab-btn.active {
+  background: var(--gray-750);
+  color: var(--white);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.main-tab-icon {
+  font-size: 15px;
+}
+
+/* ─── Aba 1 Grid ─── */
+.tab1-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
   gap: 20px;
   flex: 1;
   min-height: 0;
+}
+
+.tab1-grid .ai-section {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.tab1-grid .terminal-section {
+  grid-column: 1;
+  grid-row: 2;
+  min-height: 0;
+}
+
+.tab1-grid .terminal-section .card {
+  height: 100%;
+}
+
+.tab1-grid .terminal-section .card-body {
+  padding: 0;
+  min-height: 0;
+}
+
+/* ─── Aba 3 Grid ─── */
+.tab3-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+
+.tab3-topology {
+  min-height: 0;
+}
+
+.table-container-full {
+  max-height: none;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ─── Aba 2 Grid — 2 colunas (Router A | Router B) ─── */
+.tab2-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+
+.tab2-command {
+  /* auto-placed: rows 1 col1, then row 1 col2 */
+}
+
+.tab2-terminal {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab2-terminal .card {
+  flex: 1;
+  min-height: 0;
+}
+
+.tab2-terminal .card-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+}
+
+.terminal-tall {
+  flex: 1;
+  min-height: 0;
+  max-height: 55vh;
+  overflow-y: auto;
 }
 
 /* ─── Card / Panel ─── */
@@ -478,7 +600,7 @@ body {
   flex-direction: column;
 }
 
-/* ─── AI Command Section (Full Width) ─── */
+/* ─── AI Command Section ─── */
 .ai-section {
   grid-column: 1 / -1;
 }
@@ -601,14 +723,6 @@ body {
   flex-wrap: wrap;
 }
 
-/* ─── Direct Command Section ─── */
-.direct-command {
-  grid-column: span 1;
-}
-
-.topology-section {
-  grid-column: span 1;
-}
 
 .command-row {
   display: flex;
@@ -661,17 +775,58 @@ body {
 
 /* ─── Terminal ─── */
 .terminal-section {
-  grid-column: 1 / -1;
   min-height: 0;
 }
 
-.terminal-section .card {
-  height: 100%;
+/* Terminal accent borders */
+.terminal-card-ai {
+  border-top: 2px solid rgba(255, 133, 25, 0.4);
 }
 
-.terminal-section .card-body {
-  padding: 0;
-  min-height: 0;
+.terminal-card-cli {
+  border-top: 2px solid rgba(26, 122, 255, 0.4);
+}
+
+.terminal-card-cli-b {
+  border-top: 2px solid rgba(255, 133, 25, 0.4);
+}
+
+/* Router card accents */
+.router-card-a {
+  border-top: 2px solid rgba(26, 122, 255, 0.4);
+}
+
+.router-card-b {
+  border-top: 2px solid rgba(255, 133, 25, 0.4);
+}
+
+/* Terminal label badge */
+.terminal-label {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 4px;
+}
+
+.terminal-label-ai {
+  background: rgba(255, 133, 25, 0.12);
+  color: var(--orange-400);
+  border: 1px solid rgba(255, 133, 25, 0.2);
+}
+
+.terminal-label-cli {
+  background: rgba(26, 122, 255, 0.1);
+  color: var(--blue-400);
+  border: 1px solid rgba(26, 122, 255, 0.2);
+}
+
+.terminal-label-cli-b {
+  background: rgba(255, 133, 25, 0.12);
+  color: var(--orange-400);
+  border: 1px solid rgba(255, 133, 25, 0.2);
 }
 
 .terminal {
@@ -783,8 +938,15 @@ body {
 
 /* ─── Responsive ─── */
 @media (max-width: 1200px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
+  .tab1-grid,
+  .tab2-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .tab1-grid .ai-section,
+  .tab1-grid .topology-section,
+  .tab1-grid .terminal-section {
+    grid-column: 1 !important;
+    grid-row: auto !important;
   }
   .header-right {
     gap: 6px;

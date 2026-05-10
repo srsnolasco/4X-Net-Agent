@@ -12,6 +12,10 @@ function App() {
   const [customDevice, setCustomDevice] = useState('R1');
   const [customCommand, setCustomCommand] = useState('');
 
+  // Router B
+  const [customDeviceB, setCustomDeviceB] = useState('R2');
+  const [customCommandB, setCustomCommandB] = useState('');
+
   // Estado para o input de texto livre (Linguagem Natural / IA)
   const [naturalPrompt, setNaturalPrompt] = useState('');
 
@@ -33,6 +37,8 @@ function App() {
   );
   const [showSettings, setShowSettings] = useState(false);
   const [showAgentMenu, setShowAgentMenu] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'aba1' | 'aba2' | 'aba3'>('aba1');
   const [chatHistory, setChatHistory] = useState<any[]>(() => 
     JSON.parse(localStorage.getItem('pt_chat_history') || '[]')
   );
@@ -60,8 +66,15 @@ function App() {
   );
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [logs2, setLogs2] = useState<string[]>([]);
+  const [logs3, setLogs3] = useState<string[]>([]);
 
   const terminalRef = useRef<HTMLDivElement>(null);
+  const terminalRef2 = useRef<HTMLDivElement>(null);
+  const terminalRef3 = useRef<HTMLDivElement>(null);
+
+  const addLog2 = (msg: string) => setLogs2(prev => [...prev, msg]);
+  const addLog3 = (msg: string) => setLogs3(prev => [...prev, msg]);
 
   useEffect(() => {
     const connect = async () => {
@@ -97,6 +110,18 @@ function App() {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
   }, [logs]);
+
+  useEffect(() => {
+    if (terminalRef2.current) {
+      terminalRef2.current.scrollTop = terminalRef2.current.scrollHeight;
+    }
+  }, [logs2]);
+
+  useEffect(() => {
+    if (terminalRef3.current) {
+      terminalRef3.current.scrollTop = terminalRef3.current.scrollHeight;
+    }
+  }, [logs3]);
 
   // Sincronização com LocalStorage
   useEffect(() => {
@@ -144,16 +169,15 @@ function App() {
     setLogs(prev => [...prev, msg]);
   };
 
-  const handleCallTool = async (toolName: string, args: any = {}, startMsg?: string) => {
-    if (startMsg) addLog(`[CMD] ${startMsg}`);
-    else addLog(`[CMD] Executando ${toolName}...`);
+  const handleCallTool = async (toolName: string, args: any = {}, startMsg?: string, logger: (msg: string) => void = addLog) => {
+    if (startMsg) logger(`[CMD] ${startMsg}`);
+    else logger(`[CMD] Executando ${toolName}...`);
 
     setLoading(true);
     setStats(prev => ({ ...prev, commands: prev.commands + 1 }));
     try {
       const result = await callMcpTool(toolName, args);
 
-      // Se for string, tentamos ver se é um JSON disfarçado
       let parsedResult = result;
       if (typeof result === 'string') {
         try {
@@ -163,7 +187,6 @@ function App() {
         }
       }
 
-      // Função recursiva para transformar JSON em texto humanizado
       const formatHumanReadable = (obj: any, indent: string = ''): string => {
         if (typeof obj !== 'object' || obj === null) return String(obj);
         if (Array.isArray(obj)) {
@@ -180,25 +203,31 @@ function App() {
       if (typeof parsedResult === 'string') {
         const lines = parsedResult.split('\n');
         lines.forEach(line => {
-          if (line.trim()) addLog(`[OUTPUT] ${line}`);
+          if (line.trim()) logger(`[OUTPUT] ${line}`);
         });
       } else {
-        // Se for o JSON de topologia, mostramos um resumo amigável no terminal
         if (toolName === 'pt_query_topology') {
-          addLog(`[OUTPUT] Topografia capturada com sucesso.`);
-          addLog(`[OUTPUT] Dispositivos detectados: ${parsedResult.devices?.length || 0}`);
-          addLog(`[OUTPUT] Conexões detectadas: ${parsedResult.links?.length || 0}`);
-          addLog(`[OUTPUT] (Dados detalhados disponíveis no painel Mapa de Topologia)`);
+          logger(`[OUTPUT] Topografia capturada com sucesso.`);
+          logger(`[OUTPUT] Dispositivos detectados: ${parsedResult.devices?.length || 0}`);
+          logger(`[OUTPUT] Conexões detectadas: ${parsedResult.links?.length || 0}`);
+          logger(`[OUTPUT] (Dados detalhados disponíveis no painel Mapa de Topologia)`);
+        } else if (toolName === 'pt_clear_canvas') {
+          logger(`[SUCCESS] Canvas limpo. Todos os equipamentos e conexões foram removidos.`);
+          setStats(prev => ({ ...prev, devices: 0, links: 0 }));
+          setDeviceList([]);
+          setLinkList([]);
         } else {
-          // Objeto JSON formatado "human-readable"
           const formatted = formatHumanReadable(parsedResult);
-          const lines = formatted.split('\n');
-          lines.forEach(line => {
-            if (line.trim()) addLog(`[OUTPUT] ${line}`);
-          });
+          if (formatted.trim()) {
+            const lines = formatted.split('\n');
+            lines.forEach(line => {
+              if (line.trim()) logger(`[OUTPUT] ${line}`);
+            });
+          } else {
+            logger(`[OUTPUT] Operação concluída.`);
+          }
         }
 
-        // Atualiza estatísticas e listas se for consulta de topologia
         if (toolName === 'pt_query_topology' && parsedResult) {
           if (parsedResult.devices) {
             setStats(prev => ({ ...prev, devices: parsedResult.devices.length || 0 }));
@@ -210,9 +239,9 @@ function App() {
           }
         }
       }
-      return result; // Importante para o processNaturalLanguage
+      return result;
     } catch (err: any) {
-      addLog(`[ERROR] ${err.message}`);
+      logger(`[ERROR] ${err.message}`);
       throw err;
     } finally {
       setLoading(false);
@@ -312,16 +341,26 @@ function App() {
   // Funções pré-programadas para os botões
   const btnListDevices = () => handleCallTool('pt_query_topology', {}, 'Consultando equipamentos ativos na topologia');
   const btnAutoLayout = () => handleCallTool('pt_auto_layout', {}, 'Organizando layout visual...');
-  const btnClearCanvas = () => {
-    if(window.confirm('Tem certeza que deseja APAGAR TUDO no Packet Tracer?')) {
-      handleCallTool('pt_clear_canvas', {}, 'Limpando o projeto...');
+  const btnClearCanvas = () => setShowClearConfirm(true);
+  const confirmClearCanvas = () => {
+    setShowClearConfirm(false);
+    if (!ptConnected) {
+      addLog('[ERROR] PT Bridge não conectado. Abra o Packet Tracer e execute o script de ponte antes de limpar o canvas.');
+      return;
     }
+    handleCallTool('pt_clear_canvas', { confirm: true }, 'Limpando o projeto...');
   };
 
   const btnExecuteCustom = () => {
     if (!customCommand.trim()) return;
-    handleCallTool('pt_run_cli', { device: customDevice, command: "\n" + customCommand + "\n" }, `Enviando comando para ${customDevice}...`);
+    handleCallTool('pt_run_cli', { device: customDevice, command: "\n" + customCommand + "\n" }, `Enviando comando para ${customDevice}...`, addLog2);
     setCustomCommand('');
+  };
+
+  const btnExecuteCustomB = () => {
+    if (!customCommandB.trim()) return;
+    handleCallTool('pt_run_cli', { device: customDeviceB, command: "\n" + customCommandB + "\n" }, `Enviando comando para ${customDeviceB}...`, addLog3);
+    setCustomCommandB('');
   };
 
   // Botão de teste direto — chama MCP sem IA para diagnóstico
@@ -508,17 +547,6 @@ function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <button className="nav-item active" title="Dashboard">
-            <span>📊</span>
-            <span className="nav-tooltip">Dashboard</span>
-          </button>
-
-          <div className="sidebar-divider" />
-
-          <button className="nav-item" title="Listar Equipamentos" onClick={btnListDevices} disabled={loading || !connected}>
-            <span>📋</span>
-            <span className="nav-tooltip">Listar Equipamentos</span>
-          </button>
           <button className="nav-item" title="Organizar Layout" onClick={btnAutoLayout} disabled={loading || !connected}>
             <span>✨</span>
             <span className="nav-tooltip">Organizar Layout</span>
@@ -527,11 +555,6 @@ function App() {
             <span>⚠️</span>
             <span className="nav-tooltip">Limpar Canvas</span>
           </button>
-          <button className="nav-item nav-warning" title="Teste Direto MCP" onClick={btnTestDirect} disabled={loading || !connected}>
-            <span>🔧</span>
-            <span className="nav-tooltip">Teste Direto MCP</span>
-          </button>
-          
           <div className="sidebar-divider" />
           
           <button 
@@ -600,15 +623,39 @@ function App() {
         {/* ─── Scrollable Content ─── */}
         <div className="content-area">
 
+          {/* ─── Tab Bar ─── */}
+          <div className="main-tab-bar">
+            <button
+              className={`main-tab-btn ${activeTab === 'aba1' ? 'active' : ''}`}
+              onClick={() => setActiveTab('aba1')}
+            >
+              <span className="main-tab-icon">🤖</span>
+              AI Agent
+            </button>
+            <button
+              className={`main-tab-btn ${activeTab === 'aba2' ? 'active' : ''}`}
+              onClick={() => setActiveTab('aba2')}
+            >
+              <span className="main-tab-icon">⌨️</span>
+              Routers Check
+            </button>
+            <button
+              className={`main-tab-btn ${activeTab === 'aba3' ? 'active' : ''}`}
+              onClick={() => setActiveTab('aba3')}
+            >
+              <span className="main-tab-icon">🌐</span>
+              Topologia
+            </button>
+          </div>
 
-          {/* ─── Dashboard Grid ─── */}
-          <div className="dashboard-grid">
+          {/* ─── Aba 1: IA + Terminal AI ─── */}
+          {activeTab === 'aba1' && <div className="tab1-grid">
             {/* ─── AI Assistant Card ─── */}
             <div className="card ai-section">
               <div className="card-header">
                 <div className="card-title">
                   <span className="card-title-icon">🤖</span>
-                  Assistente de Rede — Linguagem Natural
+                  Peça o que quiser em Linguagem Natural
                 </div>
                 {loading && <div className="loader" />}
               </div>
@@ -634,13 +681,54 @@ function App() {
               </div>
             </div>
 
-            {/* ─── Direct Command Card ─── */}
-            <div className="card direct-command">
+            {/* ─── Terminal 1 · IA ─── */}
+            <div className="terminal-section">
+              <div className="card terminal-card-ai">
+                <div className="card-header">
+                  <div className="card-title">
+                    <span className="card-title-icon">🤖</span>
+                    Terminal Output
+                    <span className="terminal-label terminal-label-ai">IA · Linguagem Natural</span>
+                    {loading && <div className="loader" />}
+                  </div>
+                  <div className="card-actions">
+                    <button className="clear-btn" onClick={() => setLogs([])}>
+                      🧹 Limpar
+                    </button>
+                  </div>
+                </div>
+                <div className="card-body">
+                  <div className="terminal" ref={terminalRef}>
+                    {logs.length === 0 && (
+                      <div className="terminal-line" style={{ opacity: 0.3 }}>
+                        <span className="terminal-prefix">❯</span>
+                        <span className="terminal-text">Aguardando comandos da IA...</span>
+                      </div>
+                    )}
+                    {logs.map((log, idx) => (
+                      <div key={idx} className="terminal-line">
+                        <span className="terminal-prefix">❯</span>
+                        <span className={`terminal-text ${getLogClass(log)}`}>{log}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>}
+
+          {/* ─── Aba 2: Execução Direta + Terminal CLI ─── */}
+          {activeTab === 'aba2' && <div className="tab2-grid">
+
+            {/* ─── Router A · Execução Direta ─── */}
+            <div className="card tab2-command router-card-a">
               <div className="card-header">
                 <div className="card-title">
                   <span className="card-title-icon">⌨️</span>
-                  Execução Direta de Comandos
+                  Router A - Execução Direta
                 </div>
+                {loading && <div className="loader" />}
               </div>
               <div className="card-body">
                 <div className="command-row">
@@ -674,8 +762,116 @@ function App() {
               </div>
             </div>
 
-            {/* ─── Topology Map Card ─── */}
-            <div className="card topology-section">
+            {/* ─── Router B · Execução Direta ─── */}
+            <div className="card tab2-command router-card-b">
+              <div className="card-header">
+                <div className="card-title">
+                  <span className="card-title-icon">⌨️</span>
+                  Router B - Execução Direta
+                </div>
+                {loading && <div className="loader" />}
+              </div>
+              <div className="card-body">
+                <div className="command-row">
+                  <div className="field field-device">
+                    <label>Alvo</label>
+                    <input
+                      type="text"
+                      value={customDeviceB}
+                      onChange={(e) => setCustomDeviceB(e.target.value)}
+                      placeholder="R2"
+                    />
+                  </div>
+                  <div className="field field-grow">
+                    <label>Comando / Ação</label>
+                    <input
+                      type="text"
+                      value={customCommandB}
+                      onChange={(e) => setCustomCommandB(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && btnExecuteCustomB()}
+                      placeholder="Ex: show ip int brief"
+                    />
+                  </div>
+                  <button
+                    className="btn btn-orange"
+                    onClick={btnExecuteCustomB}
+                    disabled={loading || !connected || !customCommandB.trim()}
+                  >
+                    Enviar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ─── Router A · Terminal ─── */}
+            <div className="tab2-terminal">
+              <div className="card terminal-card-cli" style={{ height: '100%' }}>
+                <div className="card-header">
+                  <div className="card-title">
+                    <span className="card-title-icon">⌨️</span>
+                    Router A - Terminal Output
+                    <span className="terminal-label terminal-label-cli">CLI · Comandos Diretos</span>
+                  </div>
+                  <div className="card-actions">
+                    <button className="clear-btn" onClick={() => setLogs2([])}>🧹 Limpar</button>
+                  </div>
+                </div>
+                <div className="card-body" style={{ padding: 0 }}>
+                  <div className="terminal terminal-tall" ref={terminalRef2}>
+                    {logs2.length === 0 && (
+                      <div className="terminal-line" style={{ opacity: 0.3 }}>
+                        <span className="terminal-prefix">❯</span>
+                        <span className="terminal-text">Aguardando comandos do Router A...</span>
+                      </div>
+                    )}
+                    {logs2.map((log, idx) => (
+                      <div key={idx} className="terminal-line">
+                        <span className="terminal-prefix">❯</span>
+                        <span className={`terminal-text ${getLogClass(log)}`}>{log}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ─── Router B Terminal ─── */}
+            <div className="tab2-terminal">
+              <div className="card terminal-card-cli-b" style={{ height: '100%' }}>
+                <div className="card-header">
+                  <div className="card-title">
+                    <span className="card-title-icon">⌨️</span>
+                    Router B - Terminal Output
+                    <span className="terminal-label terminal-label-cli-b">CLI · Comandos Diretos</span>
+                  </div>
+                  <div className="card-actions">
+                    <button className="clear-btn" onClick={() => setLogs3([])}>🧹 Limpar</button>
+                  </div>
+                </div>
+                <div className="card-body" style={{ padding: 0 }}>
+                  <div className="terminal terminal-tall" ref={terminalRef3}>
+                    {logs3.length === 0 && (
+                      <div className="terminal-line" style={{ opacity: 0.3 }}>
+                        <span className="terminal-prefix">❯</span>
+                        <span className="terminal-text">Aguardando comandos do Router B...</span>
+                      </div>
+                    )}
+                    {logs3.map((log, idx) => (
+                      <div key={idx} className="terminal-line">
+                        <span className="terminal-prefix">❯</span>
+                        <span className={`terminal-text ${getLogClass(log)}`}>{log}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>}
+
+          {/* ─── Aba 3: Mapa de Topologia ─── */}
+          {activeTab === 'aba3' && <div className="tab3-grid">
+            <div className="card tab3-topology">
               <div className="card-header">
                 <div className="card-title">
                   <span className="card-title-icon">🌐</span>
@@ -718,10 +914,10 @@ function App() {
                 {viewMode === 'devices' ? (
                   deviceList.length === 0 ? (
                     <div className="empty-state">
-                      Nenhum equipamento listado. Clique em "Listar Equipamentos" na barra lateral.
+                      Nenhum equipamento listado. Clique em 🔄 Refresh para carregar.
                     </div>
                   ) : (
-                    <div className="table-container">
+                    <div className="table-container table-container-full">
                       <table className="topology-table">
                         <thead>
                           <tr>
@@ -761,7 +957,7 @@ function App() {
                       Nenhuma conexão detectada.
                     </div>
                   ) : (
-                    <div className="table-container">
+                    <div className="table-container table-container-full">
                       <table className="topology-table">
                         <thead>
                           <tr>
@@ -805,45 +1001,35 @@ function App() {
                 )}
               </div>
             </div>
+          </div>}
 
-            {/* ─── Terminal Card ─── */}
-            <div className="terminal-section">
-              <div className="card">
-                <div className="card-header">
-                  <div className="card-title">
-                    <span className="card-title-icon">🖥️</span>
-                    Terminal Output
-                    {loading && <div className="loader" />}
-                  </div>
-                  <div className="card-actions">
-                    <button className="clear-btn" onClick={() => setLogs([])}>
-                      🧹 Limpar
-                    </button>
-                  </div>
-                </div>
-                <div className="card-body">
-                  <div className="terminal" ref={terminalRef}>
-                    {logs.length === 0 && (
-                      <div className="terminal-line" style={{ opacity: 0.3 }}>
-                        <span className="terminal-prefix">❯</span>
-                        <span className="terminal-text">Aguardando comandos...</span>
-                      </div>
-                    )}
-                    {logs.map((log, idx) => (
-                      <div key={idx} className="terminal-line">
-                        <span className="terminal-prefix">❯</span>
-                        <span className={`terminal-text ${getLogClass(log)}`}>
-                          {log}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+        </div>
+      </div>
+
+      {/* ─── Clear Canvas Confirm Modal ─── */}
+      {showClearConfirm && (
+        <div className="settings-overlay">
+          <div className="card settings-modal">
+            <div className="card-header">
+              <div className="card-title">
+                <span className="card-title-icon">⚠️</span>
+                Confirmar Limpeza
+              </div>
+            </div>
+            <div className="card-body">
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                Tem certeza que deseja <strong style={{ color: 'var(--danger)' }}>APAGAR TODOS</strong> os equipamentos e conexões do Packet Tracer? Esta ação não pode ser desfeita.
+              </p>
+              <div className="settings-footer">
+                <button className="btn btn-secondary" onClick={() => setShowClearConfirm(false)}>Cancelar</button>
+                <button className="btn" style={{ background: 'var(--danger)', color: '#fff' }} onClick={confirmClearCanvas}>
+                  Apagar Tudo
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ─── Settings Modal ─── */}
       {showSettings && (
