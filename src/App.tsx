@@ -235,18 +235,18 @@ function App() {
     if (!port) return 'gray';
     
     const interfaceUp = port.isPortUp;
-    const linkUp = port.isProtocolUp;
+    const protocolUp = port.isProtocolUp;
     
-    if (interfaceUp && linkUp) return 'green';
-    if (interfaceUp && !linkUp) return 'yellow';
+    // Se a interface está SHUTDOWN (isPortUp=false) -> VERMELHO (Administrativamente Down)
+    if (!interfaceUp) return 'red';
     
-    // Red ONLY for administratively down. Assuming 'isAdministrativelyDown' property or similar exists 
-    // or falls back to checking if we can infer it. If not admin down, return gray.
-    if (port.isAdministrativelyDown === true || port.status === 'administratively down') {
-      return 'red';
-    }
+    // Se a interface está UP mas o PROTOCOLO (link) está DOWN -> AMARELO (Down)
+    if (interfaceUp && !protocolUp) return 'yellow';
     
-    return 'gray'; // Down, but not administratively down
+    // Se ambos estão UP -> VERDE
+    if (interfaceUp && protocolUp) return 'green';
+    
+    return 'gray'; 
   };
 
   const handleSavePrompt = () => {
