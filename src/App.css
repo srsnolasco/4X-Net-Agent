@@ -338,6 +338,7 @@ body {
 .badge-icon.blue { filter: hue-rotate(0deg); }
 .badge-icon.orange { filter: hue-rotate(0deg); }
 .badge-icon.green { filter: hue-rotate(0deg); }
+.badge-icon.red { filter: hue-rotate(0deg); }
 
 .badge-label {
   font-size: 10px;
@@ -845,6 +846,11 @@ body {
   border-bottom: 1px solid rgba(255,255,255,0.03);
   color: var(--gray-200);
   vertical-align: middle;
+}
+
+.device-icon {
+  margin-right: 6px;
+  font-size: 15px;
 }
 
 .device-name {

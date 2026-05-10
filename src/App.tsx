@@ -15,6 +15,8 @@ function App() {
   // Estado para o input de texto livre (Linguagem Natural / IA)
   const [naturalPrompt, setNaturalPrompt] = useState('');
 
+  const [ptConnected, setPtConnected] = useState(false);
+
   // Stats simulados (poderiam vir do MCP futuramente)
   const [stats, setStats] = useState({
     devices: 0,
@@ -57,24 +59,37 @@ function App() {
     localStorage.getItem('pt_prompt_last_update') || 'Original'
   );
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Tenta conectar assim que o app carrega
     const connect = async () => {
       try {
         await initSession();
         setConnected(true);
         addLog('[SUCCESS] Conectado ao servidor MCP (porta 39001)');
-
-        // Verifica o status da ponte com o PT
-        await handleCallTool('pt_bridge_status', {}, 'Verificando status da Ponte PT...');
       } catch (err: any) {
         addLog(`[ERROR] Falha ao conectar: ${err.message}`);
       }
     };
     connect();
+  }, []);
+
+  // Poll PT bridge status every 30s to show whether PT itself is connected
+  useEffect(() => {
+    const checkBridge = async () => {
+      try {
+        const result = await callMcpTool('pt_bridge_status', {});
+        const text = typeof result === 'string' ? result : JSON.stringify(result);
+        setPtConnected(text.includes('connected: true'));
+      } catch {
+        setPtConnected(false);
+      }
+    };
+    checkBridge();
+    const interval = setInterval(checkBridge, 30_000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -231,6 +246,18 @@ function App() {
     return device.ports.find((p: any) => p.name === portName);
   };
 
+  const getDeviceIcon = (model: string): string => {
+    if (!model) return '🖥️';
+    const m = model.toLowerCase();
+    if (m.includes('pc') || m.includes('laptop')) return '💻';
+    if (m.includes('server')) return '🖥️';
+    if (m.includes('phone') || m.includes('voip')) return '📞';
+    if (m.includes('ap') || m.includes('wireless') || m.includes('wrt')) return '📶';
+    if (m.includes('2960') || m.includes('3560') || m.includes('switch')) return '🔀';
+    if (m.includes('2901') || m.includes('2911') || m.includes('1941') || m.includes('isr') || m.includes('router')) return '🔷';
+    return '🖥️';
+  };
+
   const getSinglePortStatusColor = (port: any) => {
     if (!port) return 'gray';
     
@@ -272,6 +299,15 @@ function App() {
     setShowPromptModal(false);
   };
 
+
+  // Auto-refresh topology every 15s when enabled
+  useEffect(() => {
+    if (!autoRefresh || !connected) return;
+    const interval = setInterval(() => {
+      handleCallTool('pt_query_topology', {});
+    }, 15_000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, connected]);
 
   // Funções pré-programadas para os botões
   const btnListDevices = () => handleCallTool('pt_query_topology', {}, 'Consultando equipamentos ativos na topologia');
@@ -538,8 +574,15 @@ function App() {
             </div>
             <div className="header-badge stat-badge">
               <span className="badge-icon green">📡</span>
-              <span className="badge-label">Status</span>
+              <span className="badge-label">MCP</span>
               <span className="badge-value">{connected ? 'Online' : 'Offline'}</span>
+            </div>
+            <div className="header-badge stat-badge">
+              <span className={`badge-icon ${ptConnected ? 'green' : 'red'}`}>🖧</span>
+              <span className="badge-label">PT Bridge</span>
+              <span className="badge-value" style={{ color: ptConnected ? 'var(--success)' : 'var(--danger)' }}>
+                {ptConnected ? 'Conectado' : 'Aguardando'}
+              </span>
             </div>
             <div className="header-badge stat-badge">
               <span className="badge-icon blue">⚡</span>
@@ -639,17 +682,35 @@ function App() {
                   Mapa de Topologia
                 </div>
                 <div className="card-tabs">
-                  <button 
+                  <button
                     className={`tab-btn ${viewMode === 'devices' ? 'active' : ''}`}
                     onClick={() => setViewMode('devices')}
                   >
                     Equipamentos
                   </button>
-                  <button 
+                  <button
                     className={`tab-btn ${viewMode === 'links' ? 'active' : ''}`}
                     onClick={() => setViewMode('links')}
                   >
                     Conexões
+                  </button>
+                </div>
+                <div className="card-actions">
+                  <button
+                    className={`tab-btn ${autoRefresh ? 'active' : ''}`}
+                    title="Atualizar automaticamente a cada 15s"
+                    onClick={() => setAutoRefresh(v => !v)}
+                    disabled={!connected}
+                  >
+                    {autoRefresh ? '⏹ Auto' : '▶ Auto'}
+                  </button>
+                  <button
+                    className="clear-btn"
+                    title="Atualizar agora"
+                    onClick={btnListDevices}
+                    disabled={loading || !connected}
+                  >
+                    🔄 Refresh
                   </button>
                 </div>
               </div>
@@ -673,6 +734,7 @@ function App() {
                           {deviceList.map((dev, idx) => (
                             <tr key={idx}>
                               <td>
+                                <span className="device-icon">{getDeviceIcon(dev.model)}</span>
                                 <span className="device-name">{dev.name}</span>
                               </td>
                               <td>{dev.model}</td>
@@ -814,45 +876,6 @@ function App() {
               </div>
               <div className="settings-footer">
                 <button className="btn btn-primary" onClick={() => setShowSettings(false)}>
-                  Salvar e Fechar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Memory Settings Modal ─── */}
-      {showMemorySettings && (
-        <div className="settings-overlay">
-          <div className="settings-modal card">
-            <div className="card-header">
-              <div className="card-title">
-                <span className="card-title-icon">🧠</span>
-                Configurações de Memória
-              </div>
-              <button className="close-btn" onClick={() => setShowMemorySettings(false)}>✕</button>
-            </div>
-            <div className="card-body">
-              <div className="settings-group">
-                <label>Tamanho da Janela de Contexto (Mensagens)</label>
-                <div className="range-wrapper">
-                  <input 
-                    type="range" 
-                    min="1" 
-                    max="50" 
-                    value={maxMemory} 
-                    onChange={(e) => setMaxMemory(parseInt(e.target.value))}
-                  />
-                  <span className="range-value">{maxMemory} mensagens</span>
-                </div>
-                <p className="settings-hint">
-                  Define quantas interações passadas são enviadas para a IA. 
-                  Valores maiores permitem lembrar de conversas longas, mas consomem mais tokens.
-                </p>
-              </div>
-              <div className="settings-footer">
-                <button className="btn btn-primary" onClick={() => setShowMemorySettings(false)}>
                   Salvar e Fechar
                 </button>
               </div>

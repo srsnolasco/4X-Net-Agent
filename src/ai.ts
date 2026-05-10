@@ -113,6 +113,97 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       description: "Organiza o grid visual da topologia para que não fiquem todos os roteadores amontoados.",
       parameters: { type: "object", properties: {} }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "pt_run_cli_bulk",
+      description: "Executa múltiplos comandos CLI em vários dispositivos de uma só vez. Ideal para configurar IPs, roteamento e VLANs em lote.",
+      parameters: {
+        type: "object",
+        properties: {
+          commands: {
+            type: "array",
+            description: "Lista de objetos {device, command} para executar em sequência.",
+            items: {
+              type: "object",
+              properties: {
+                device: { type: "string" },
+                command: { type: "string" }
+              },
+              required: ["device", "command"]
+            }
+          }
+        },
+        required: ["commands"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "pt_ping",
+      description: "Executa um ping entre dois dispositivos para verificar conectividade IP.",
+      parameters: {
+        type: "object",
+        properties: {
+          from_device: { type: "string", description: "Dispositivo de origem (ex: 'PC1')" },
+          to_ip: { type: "string", description: "IP de destino (ex: '192.168.1.1')" }
+        },
+        required: ["from_device", "to_ip"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "pt_traceroute",
+      description: "Executa um traceroute de um dispositivo para um IP destino.",
+      parameters: {
+        type: "object",
+        properties: {
+          from_device: { type: "string" },
+          to_ip: { type: "string" }
+        },
+        required: ["from_device", "to_ip"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "pt_save_pkt",
+      description: "Salva o arquivo .pkt do projeto no Packet Tracer.",
+      parameters: { type: "object", properties: {} }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "pt_show_running",
+      description: "Mostra a configuração running-config de um dispositivo.",
+      parameters: {
+        type: "object",
+        properties: {
+          device: { type: "string", description: "Nome do dispositivo (ex: 'R1')" }
+        },
+        required: ["device"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "pt_inspect_ports",
+      description: "Lista todas as portas de um dispositivo com status de cada interface (up/down, IP, etc).",
+      parameters: {
+        type: "object",
+        properties: {
+          device: { type: "string", description: "Nome do dispositivo (ex: 'R1')" }
+        },
+        required: ["device"]
+      }
+    }
   }
 ];
 
