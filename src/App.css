@@ -156,6 +156,11 @@ body {
   background: var(--danger-dim);
 }
 
+.nav-save:hover:not(:disabled) {
+  color: var(--success);
+  background: var(--success-dim);
+}
+
 .nav-warning:hover:not(:disabled) {
   color: var(--orange-400);
   background: rgba(255,133,25,0.1);

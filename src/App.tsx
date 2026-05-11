@@ -47,7 +47,7 @@ function App() {
   );
   const [showMemorySettings, setShowMemorySettings] = useState(false);
 
-  const defaultPrompt = "v3.2 - Você é um Engenheiro de Redes Cisco Senior operando o Packet Tracer de forma automatizada. Você TEM capacidade de criar, conectar, configurar e remover dispositivos.\n\nRegras:\n1. Quando o usuário pedir para CRIAR um dispositivo (roteador, switch, PC, etc), USE pt_add_device IMEDIATAMENTE. Modelos padrão: roteadores='2911', switches='2960-24TT', PCs='PC-PT'. **REGRA CRÍTICA: Sempre que criar um roteador '2911', você DEVE obrigatoriamente incluir na MESMA RESPOSTA a ferramenta pt_add_module para instalar o módulo 'HWIC-2T' no slot '0/0'. NUNCA crie um roteador sem o módulo WAN.**\n2. Quando o usuário pedir apenas para CONECTAR dispositivos que já existem, NÃO crie dispositivos novos — só crie o link.\n3. Se uma chamada de ferramenta falhar por porta inválida ou ocupada, chame pt_query_topology para ver quais portas estão livres antes de tentar novamente.\n4. Se receber o mesmo erro 2 vezes seguidas, PARE e explique o problema ao usuário.\n5. NÃO use pt_auto_layout a menos que o usuário peça EXPLICITAMENTE para organizar o layout.\n6. Você PODE remover dispositivos (pt_delete_device) e links (pt_delete_link). Antes de remover, use pt_query_topology para confirmar os nomes.\n7. SEMPRE execute as ações pedidas. NUNCA recuse um pedido legítimo de criar, conectar ou configurar dispositivos.\n8. **GESTÃO DE BOOT E CONFIGURAÇÃO:** Dispositivos novos podem estar no 'Initial Configuration Dialog'. Se detectar isso no output (pergunta [yes/no]), envie 'no' antes de qualquer outro comando. Para CONFIGURAR interfaces ou roteamento, use SEMPRE `pt_run_cli` ou `pt_run_cli_bulk` com o parâmetro `mode='global'`. Isso garante que o comando seja executado no contexto correto (config terminal).\n9. **CONSULTAS DE TOPOLOGIA:** Sempre que o usuário fizer uma pergunta sobre qual porta está conectada a qual dispositivo, IPs, ou estado atual da rede, USE OBRIGATORIAMENTE a ferramenta `pt_query_topology` ANTES de responder. NUNCA adivinhe interfaces ou IPs.";
+  const defaultPrompt = "v3.6 - Você é um Engenheiro de Redes Cisco Senior operando o Packet Tracer de forma automatizada. Você TEM capacidade de criar, conectar, configurar e remover dispositivos.\n\nRegras:\n1. Quando o usuário pedir para CRIAR um dispositivo (roteador, switch, PC, etc), você DEVE executar OBRIGATORIAMENTE estas 3 etapas em sequência — nenhuma pode ser pulada:\n   ETAPA 1: Chame pt_add_device com o modelo e nome do dispositivo.\n   ETAPA 2 (somente roteadores 2911): Chame pt_add_module com módulo 'HWIC-2T' no slot '0/0'. NUNCA crie um roteador sem este módulo.\n   ETAPA 3 (OBRIGATÓRIA para TODOS os dispositivos): Chame pt_run_cli no dispositivo recém-criado com o comando '\\nno\\n\\nenable\\nconfigure terminal\\nhostname <NOME>\\nend\\n' substituindo <NOME> pelo nome exato do dispositivo (ex: R1, SW1, PC1). A criação SÓ ESTÁ COMPLETA após esta etapa. O sistema aguarda o boot automaticamente.\n2. Quando o usuário pedir apenas para CONECTAR dispositivos que já existem, NÃO crie dispositivos novos — só crie o link.\n3. Se uma chamada de ferramenta falhar por porta inválida ou ocupada, chame pt_query_topology para ver quais portas estão livres antes de tentar novamente.\n4. Se receber o mesmo erro 2 vezes seguidas, PARE e explique o problema ao usuário.\n5. NÃO use pt_auto_layout a menos que o usuário peça EXPLICITAMENTE para organizar o layout.\n6. Você PODE remover dispositivos (pt_delete_device) e links (pt_delete_link). Antes de remover, use pt_query_topology para confirmar os nomes.\n7. SEMPRE execute as ações pedidas. NUNCA recuse um pedido legítimo de criar, conectar ou configurar dispositivos.\n8. **GESTÃO DE BOOT E CONFIGURAÇÃO:** Dispositivos novos podem estar no 'Initial Configuration Dialog'. Se detectar isso no output (pergunta [yes/no]), envie 'no' antes de qualquer outro comando. Para CONFIGURAR interfaces ou roteamento, use SEMPRE `pt_run_cli` ou `pt_run_cli_bulk`. Isso garante que o comando seja executado no contexto correto (config terminal).\n9. **CONSULTAS DE TOPOLOGIA:** Sempre que o usuário fizer uma pergunta sobre qual porta está conectada a qual dispositivo, IPs, ou estado atual da rede, USE OBRIGATORIAMENTE a ferramenta `pt_query_topology` ANTES de responder. NUNCA adivinhe interfaces ou IPs.";
 
   const [systemPrompt, setSystemPrompt] = useState(() => 
     localStorage.getItem('pt_system_prompt') || defaultPrompt
@@ -154,7 +154,7 @@ function App() {
 
   useEffect(() => {
     // Migração automática do Prompt (Verifica se as regras necessárias estão presentes)
-    const needsUpdate = !systemPrompt.includes('HWIC-2T') || !systemPrompt.includes('GESTÃO DE BOOT') || !systemPrompt.includes('CONSULTAS DE TOPOLOGIA');
+    const needsUpdate = !systemPrompt.includes('v3.6') || !systemPrompt.includes('ETAPA 3');
     if (needsUpdate) {
       setSystemPrompt(defaultPrompt);
       setPromptVersion(prev => prev + 1);
@@ -342,6 +342,48 @@ function App() {
   const btnListDevices = () => handleCallTool('pt_query_topology', {}, 'Consultando equipamentos ativos na topologia');
   const btnAutoLayout = () => handleCallTool('pt_auto_layout', {}, 'Organizando layout visual...');
   const btnClearCanvas = () => setShowClearConfirm(true);
+
+  const btnSaveAllConfigs = async () => {
+    addLog('[CMD] Buscando dispositivos na topologia...');
+    setLoading(true);
+    setStats(prev => ({ ...prev, commands: prev.commands + 1 }));
+    try {
+      const topoResult = await callMcpTool('pt_query_topology', {});
+      let parsed: any = topoResult;
+      if (typeof topoResult === 'string') {
+        try { parsed = JSON.parse(topoResult); } catch { parsed = {}; }
+      }
+      const devices: any[] = parsed?.devices || [];
+      if (parsed?.devices) setDeviceList(parsed.devices);
+      if (parsed?.links) setLinkList(parsed.links);
+
+      const targets = devices.filter((d: any) => {
+        const model = (d.model || '').toLowerCase();
+        return model.includes('2911') || model.includes('2901') || model.includes('1941') ||
+               model.includes('isr') || model.includes('router') ||
+               model.includes('2960') || model.includes('3560') || model.includes('switch');
+      });
+
+      if (targets.length === 0) {
+        addLog('[WARNING] Nenhum roteador ou switch encontrado na topologia.');
+        return;
+      }
+
+      addLog(`[CMD] Salvando NVRAM em ${targets.length} dispositivo(s): ${targets.map((d: any) => d.name).join(', ')}`);
+
+      for (const d of targets) {
+        addLog(`[CMD] Salvando ${d.name}...`);
+        const res = await callMcpTool('pt_run_cli', { device: d.name, command: '\nenable\nwrite\n' });
+        const text = typeof res === 'string' ? res : JSON.stringify(res);
+        text.split('\n').forEach((line: string) => { if (line.trim()) addLog(`[OUTPUT] ${d.name}: ${line}`); });
+      }
+      addLog('[SUCCESS] Configurações salvas na NVRAM com sucesso.');
+    } catch (err: any) {
+      addLog(`[ERROR] Falha ao salvar configurações: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
   const confirmClearCanvas = () => {
     setShowClearConfirm(false);
     if (!ptConnected) {
@@ -550,6 +592,10 @@ function App() {
           <button className="nav-item" title="Organizar Layout" onClick={btnAutoLayout} disabled={loading || !connected}>
             <span>✨</span>
             <span className="nav-tooltip">Organizar Layout</span>
+          </button>
+          <button className="nav-item nav-save" title="Salvar NVRAM (write)" onClick={btnSaveAllConfigs} disabled={loading || !connected}>
+            <span>💾</span>
+            <span className="nav-tooltip">Salvar NVRAM</span>
           </button>
           <button className="nav-item nav-danger" title="Limpar Canvas" onClick={btnClearCanvas} disabled={loading || !connected}>
             <span>⚠️</span>
