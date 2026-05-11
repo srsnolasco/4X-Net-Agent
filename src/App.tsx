@@ -2,6 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import './App.css';
 import { callMcpTool, initSession } from './api';
 import { processNaturalLanguage } from './ai';
+import {
+  IconMap, IconAI, IconBrain, IconSettings, IconDoc, IconTrash, IconStop,
+  IconWand, IconSave, IconWarn, IconTerminal, IconGlobe, IconRefresh,
+  IconPlay, IconPause, IconClock,
+} from './Icons';
 
 function App() {
   const [connected, setConnected] = useState(false);
@@ -406,10 +411,6 @@ function App() {
     setCustomCommandB('');
   };
 
-  // Botão de teste direto — chama MCP sem IA para diagnóstico
-  const btnTestDirect = () => {
-    handleCallTool('pt_add_device', { model: '2911', name: 'TestRouter' }, 'TESTE DIRETO: Criando roteador TestRouter...');
-  };
 
   const btnSendNaturalCommand = async () => {
     if (!naturalPrompt.trim()) return;
@@ -462,7 +463,7 @@ function App() {
       {showAgentMenu && (
         <div className="agent-flyout">
           <div className="flyout-header">
-            <div className="flyout-title">🤖 Menu do Agente</div>
+            <div className="flyout-title"><IconAI size={15} /> Menu do Agente</div>
             <button className="close-mini-btn" onClick={() => setShowAgentMenu(false)}>✕</button>
           </div>
           <div className="flyout-content">
@@ -474,7 +475,7 @@ function App() {
                 setShowAgentMenu(false);
               }}
             >
-              <span className="flyout-item-icon">🧠</span>
+              <span className="flyout-item-icon"><IconBrain size={20} /></span>
               <div className="flyout-item-text">
                 <span className="flyout-item-title">Tamanho da Memória</span>
                 <span className="flyout-item-desc">Ajuste quantas mensagens o agente lembra</span>
@@ -488,7 +489,7 @@ function App() {
                 setShowAgentMenu(false);
               }}
             >
-              <span className="flyout-item-icon">⚙️</span>
+              <span className="flyout-item-icon"><IconSettings size={20} /></span>
               <div className="flyout-item-text">
                 <span className="flyout-item-title">Limite de loop</span>
                 <span className="flyout-item-desc">Ajuste o limite de iterações consecutivas</span>
@@ -502,7 +503,7 @@ function App() {
                 setShowAgentMenu(false);
               }}
             >
-              <span className="flyout-item-icon">📜</span>
+              <span className="flyout-item-icon"><IconDoc size={20} /></span>
               <div className="flyout-item-text">
                 <span className="flyout-item-title">Prompt do Sistema</span>
                 <span className="flyout-item-desc">Edite as instruções base do agente</span>
@@ -517,7 +518,7 @@ function App() {
                 setShowAgentMenu(false);
               }}
             >
-              <span className="flyout-item-icon">🧹</span>
+              <span className="flyout-item-icon"><IconTrash size={20} /></span>
               <div className="flyout-item-text">
                 <span className="flyout-item-title">Limpar Memória</span>
                 <span className="flyout-item-desc">Esquece o contexto da conversa atual</span>
@@ -532,7 +533,7 @@ function App() {
                 setShowAgentMenu(false);
               }}
             >
-              <span className="flyout-item-icon">🛑</span>
+              <span className="flyout-item-icon"><IconStop size={20} /></span>
               <div className="flyout-item-text">
                 <span className="flyout-item-title">Parar Agente</span>
                 <span className="flyout-item-desc">Interrompe a tarefa em execução</span>
@@ -546,7 +547,7 @@ function App() {
       {showCanvasMenu && (
         <div className="agent-flyout">
           <div className="flyout-header">
-            <div className="flyout-title">🗺️ Canvas</div>
+            <div className="flyout-title"><IconMap size={15} /> Canvas</div>
             <button className="close-mini-btn" onClick={() => setShowCanvasMenu(false)}>✕</button>
           </div>
           <div className="flyout-content">
@@ -559,7 +560,7 @@ function App() {
                 setShowCanvasMenu(false);
               }}
             >
-              <span className="flyout-item-icon">✨</span>
+              <span className="flyout-item-icon"><IconMap size={20} /></span>
               <div className="flyout-item-text">
                 <span className="flyout-item-title">Organizar Layout</span>
                 <span className="flyout-item-desc">Reorganiza visualmente os dispositivos no canvas</span>
@@ -574,7 +575,7 @@ function App() {
                 setShowCanvasMenu(false);
               }}
             >
-              <span className="flyout-item-icon">💾</span>
+              <span className="flyout-item-icon"><IconSave size={20} /></span>
               <div className="flyout-item-text">
                 <span className="flyout-item-title">Salvar NVRAM</span>
                 <span className="flyout-item-desc">Executa "write" em todos os roteadores e switches</span>
@@ -589,7 +590,7 @@ function App() {
                 btnClearCanvas();
               }}
             >
-              <span className="flyout-item-icon">⚠️</span>
+              <span className="flyout-item-icon"><IconWarn size={20} /></span>
               <div className="flyout-item-text">
                 <span className="flyout-item-title">Limpar Canvas</span>
                 <span className="flyout-item-desc">Remove todos os equipamentos e conexões</span>
@@ -605,7 +606,7 @@ function App() {
           <div className="card settings-modal">
             <div className="card-header">
               <div className="card-title">
-                <span className="card-title-icon">🧠</span>
+                <span className="card-title-icon"><IconBrain size={16} /></span>
                 Configurações de Memória
               </div>
               <button className="close-btn" onClick={() => setShowMemorySettings(false)}>✕</button>
@@ -638,13 +639,6 @@ function App() {
 
       {/* ─── Sidebar ─── */}
       <aside className="sidebar">
-        <div className="sidebar-logo">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7l10 5 10-5-10-5z" fill="white"/>
-            <path d="M2 17l10 5 10-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 12l10 5 10-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
 
         <nav className="sidebar-nav">
           <button
@@ -652,7 +646,7 @@ function App() {
             title="Canvas"
             onClick={() => { setShowCanvasMenu(!showCanvasMenu); setShowAgentMenu(false); }}
           >
-            <span>🗺️</span>
+            <IconMap size={22} />
             <span className="nav-label">Canvas</span>
           </button>
           <div className="sidebar-divider" />
@@ -661,16 +655,11 @@ function App() {
             title="AI Agent"
             onClick={() => { setShowAgentMenu(!showAgentMenu); setShowCanvasMenu(false); }}
           >
-            <span>🤖</span>
+            <IconAI size={22} />
             <span className="nav-label">AI Agent</span>
           </button>
         </nav>
 
-        <div className="sidebar-bottom">
-          <div className="sidebar-status">
-            <div className={`status-indicator ${connected ? 'online' : 'offline'}`} />
-          </div>
-        </div>
       </aside>
 
       {/* ─── Main ─── */}
@@ -678,33 +667,28 @@ function App() {
         {/* ─── Top Header ─── */}
         <header className="top-header">
           <div className="header-left">
-            <div>
-              <div className="header-title">4X NET AGENT</div>
-              <div className="header-subtitle">Cisco Packet Tracer Command Center</div>
-            </div>
+            <img src="/logo-4x.png" className="header-logo" alt="4X AI Network" />
+          </div>
+          <div className="header-center">
+            <span className="header-title">4X AI NETWORK - Gerencie sua Infra com Inteligência.</span>
           </div>
           <div className="header-right">
-            <div className="header-badge stat-badge">
-              <span className="badge-icon blue">🖥️</span>
-              <span className="badge-label">Dispositivos</span>
-              <span className="badge-value">{stats.devices}</span>
-            </div>
-            <div className="header-badge stat-badge">
-              <span className="badge-icon orange">🔗</span>
-              <span className="badge-label">Links</span>
-              <span className="badge-value">{stats.links}</span>
-            </div>
-            <div className="header-badge stat-badge">
-              <span className={`badge-icon ${ptConnected ? 'green' : 'red'}`}>🖧</span>
+            <div className="header-badge pt-bridge-dot-badge" title={ptConnected ? 'PT Bridge: Conectado' : 'PT Bridge: Aguardando'}>
+              <div className={`pt-bridge-dot ${ptConnected ? 'online' : 'offline'}`} />
               <span className="badge-label">PT Bridge</span>
-              <span className="badge-value" style={{ color: ptConnected ? 'var(--success)' : 'var(--danger)' }}>
-                {ptConnected ? 'Conectado' : 'Aguardando'}
-              </span>
+            </div>
+            <div className="header-badge-divider" />
+            <div className="header-badge stat-badge">
+              <span className="badge-value">{stats.devices}</span>
+              <span className="badge-label">Dispositivos</span>
             </div>
             <div className="header-badge stat-badge">
-              <span className="badge-icon blue">⚡</span>
-              <span className="badge-label">Comandos</span>
+              <span className="badge-value">{stats.links}</span>
+              <span className="badge-label">Links</span>
+            </div>
+            <div className="header-badge stat-badge">
               <span className="badge-value">{stats.commands}</span>
+              <span className="badge-label">Comandos</span>
             </div>
           </div>
         </header>
@@ -718,21 +702,21 @@ function App() {
               className={`main-tab-btn ${activeTab === 'aba1' ? 'active' : ''}`}
               onClick={() => setActiveTab('aba1')}
             >
-              <span className="main-tab-icon">🤖</span>
+              <span className="main-tab-icon"><IconAI size={15} /></span>
               AI Agent
             </button>
             <button
               className={`main-tab-btn ${activeTab === 'aba2' ? 'active' : ''}`}
               onClick={() => setActiveTab('aba2')}
             >
-              <span className="main-tab-icon">⌨️</span>
+              <span className="main-tab-icon"><IconTerminal size={15} /></span>
               Routers Check
             </button>
             <button
               className={`main-tab-btn ${activeTab === 'aba3' ? 'active' : ''}`}
               onClick={() => setActiveTab('aba3')}
             >
-              <span className="main-tab-icon">🌐</span>
+              <span className="main-tab-icon"><IconGlobe size={15} /></span>
               Topologia
             </button>
           </div>
@@ -743,7 +727,7 @@ function App() {
             <div className="card ai-section">
               <div className="card-header">
                 <div className="card-title">
-                  <span className="card-title-icon">🤖</span>
+                  <span className="card-title-icon"><IconAI size={16} /></span>
                   Peça o que quiser em Linguagem Natural
                 </div>
                 {loading && <div className="loader" />}
@@ -763,7 +747,7 @@ function App() {
                     onClick={btnSendNaturalCommand}
                     disabled={loading || !naturalPrompt.trim()}
                   >
-                    ✨ Executar Magia
+                    <IconWand size={15} /> Executar Magia
                   </button>
                 </div>
 
@@ -775,14 +759,14 @@ function App() {
               <div className="card terminal-card-ai">
                 <div className="card-header">
                   <div className="card-title">
-                    <span className="card-title-icon">🤖</span>
+                    <span className="card-title-icon"><IconAI size={16} /></span>
                     Terminal Output
                     <span className="terminal-label terminal-label-ai">IA · Linguagem Natural</span>
                     {loading && <div className="loader" />}
                   </div>
                   <div className="card-actions">
                     <button className="clear-btn" onClick={() => setLogs([])}>
-                      🧹 Limpar
+                    <IconTrash size={13} /> Limpar
                     </button>
                   </div>
                 </div>
@@ -814,7 +798,7 @@ function App() {
             <div className="card tab2-command router-card-a">
               <div className="card-header">
                 <div className="card-title">
-                  <span className="card-title-icon">⌨️</span>
+                  <span className="card-title-icon"><IconTerminal size={16} /></span>
                   Router A - Execução Direta
                 </div>
                 {loading && <div className="loader" />}
@@ -855,7 +839,7 @@ function App() {
             <div className="card tab2-command router-card-b">
               <div className="card-header">
                 <div className="card-title">
-                  <span className="card-title-icon">⌨️</span>
+                  <span className="card-title-icon"><IconTerminal size={16} /></span>
                   Router B - Execução Direta
                 </div>
                 {loading && <div className="loader" />}
@@ -897,12 +881,12 @@ function App() {
               <div className="card terminal-card-cli" style={{ height: '100%' }}>
                 <div className="card-header">
                   <div className="card-title">
-                    <span className="card-title-icon">⌨️</span>
+                    <span className="card-title-icon"><IconTerminal size={16} /></span>
                     Router A - Terminal Output
                     <span className="terminal-label terminal-label-cli">CLI · Comandos Diretos</span>
                   </div>
                   <div className="card-actions">
-                    <button className="clear-btn" onClick={() => setLogs2([])}>🧹 Limpar</button>
+                    <button className="clear-btn" onClick={() => setLogs2([])}><IconTrash size={13} /> Limpar</button>
                   </div>
                 </div>
                 <div className="card-body" style={{ padding: 0 }}>
@@ -929,12 +913,12 @@ function App() {
               <div className="card terminal-card-cli-b" style={{ height: '100%' }}>
                 <div className="card-header">
                   <div className="card-title">
-                    <span className="card-title-icon">⌨️</span>
+                    <span className="card-title-icon"><IconTerminal size={16} /></span>
                     Router B - Terminal Output
                     <span className="terminal-label terminal-label-cli-b">CLI · Comandos Diretos</span>
                   </div>
                   <div className="card-actions">
-                    <button className="clear-btn" onClick={() => setLogs3([])}>🧹 Limpar</button>
+                    <button className="clear-btn" onClick={() => setLogs3([])}><IconTrash size={13} /> Limpar</button>
                   </div>
                 </div>
                 <div className="card-body" style={{ padding: 0 }}>
@@ -963,7 +947,7 @@ function App() {
             <div className="card tab3-topology">
               <div className="card-header">
                 <div className="card-title">
-                  <span className="card-title-icon">🌐</span>
+                  <span className="card-title-icon"><IconGlobe size={16} /></span>
                   Mapa de Topologia
                 </div>
                 <div className="card-tabs">
@@ -987,7 +971,7 @@ function App() {
                     onClick={() => setAutoRefresh(v => !v)}
                     disabled={!connected}
                   >
-                    {autoRefresh ? '⏹ Auto' : '▶ Auto'}
+                    {autoRefresh ? <><IconPause size={12} /> Auto</> : <><IconPlay size={12} /> Auto</>}
                   </button>
                   <button
                     className="clear-btn"
@@ -995,7 +979,7 @@ function App() {
                     onClick={btnListDevices}
                     disabled={loading || !connected}
                   >
-                    🔄 Refresh
+                    <IconRefresh size={13} /> Refresh
                   </button>
                 </div>
               </div>
@@ -1003,7 +987,7 @@ function App() {
                 {viewMode === 'devices' ? (
                   deviceList.length === 0 ? (
                     <div className="empty-state">
-                      Nenhum equipamento listado. Clique em 🔄 Refresh para carregar.
+                      Nenhum equipamento listado. Clique em Refresh para carregar.
                     </div>
                   ) : (
                     <div className="table-container table-container-full">
@@ -1101,7 +1085,7 @@ function App() {
           <div className="card settings-modal">
             <div className="card-header">
               <div className="card-title">
-                <span className="card-title-icon">⚠️</span>
+                <span className="card-title-icon"><IconWarn size={16} /></span>
                 Confirmar Limpeza
               </div>
             </div>
@@ -1126,7 +1110,7 @@ function App() {
           <div className="settings-modal card">
             <div className="card-header">
               <div className="card-title">
-                <span className="card-title-icon">⚙️</span>
+                <span className="card-title-icon"><IconSettings size={16} /></span>
                 Configurações do Limite de Loop
               </div>
               <button className="close-btn" onClick={() => setShowSettings(false)}>✕</button>
@@ -1166,7 +1150,7 @@ function App() {
             <div className="card-header">
               <div className="card-title">
                 <div className="card-title-main">
-                  <span className="card-title-icon">📜</span>
+                  <span className="card-title-icon"><IconDoc size={16} /></span>
                   Instruções do Sistema
                 </div>
                 <div className="version-badge">
@@ -1180,7 +1164,7 @@ function App() {
                 <div className="label-row">
                   <label>Prompt Base do Agente</label>
                   <button className="history-btn" onClick={() => setShowHistoryModal(true)}>
-                    📜 Ver Histórico
+                    <IconDoc size={13} /> Ver Histórico
                   </button>
                 </div>
                 <textarea 
@@ -1215,7 +1199,7 @@ function App() {
           <div className="settings-modal card history-modal">
             <div className="card-header">
               <div className="card-title">
-                <span className="card-title-icon">🕒</span>
+                <span className="card-title-icon"><IconClock size={16} /></span>
                 Histórico de Versões
               </div>
               <button className="close-btn" onClick={() => setShowHistoryModal(false)}>✕</button>
