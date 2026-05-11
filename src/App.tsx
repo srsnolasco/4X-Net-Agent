@@ -37,6 +37,7 @@ function App() {
   );
   const [showSettings, setShowSettings] = useState(false);
   const [showAgentMenu, setShowAgentMenu] = useState(false);
+  const [showCanvasMenu, setShowCanvasMenu] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<'aba1' | 'aba2' | 'aba3'>('aba1');
   const [chatHistory, setChatHistory] = useState<any[]>(() => 
@@ -541,6 +542,63 @@ function App() {
         </div>
       )}
 
+      {/* ─── Canvas Flyout Menu ─── */}
+      {showCanvasMenu && (
+        <div className="agent-flyout">
+          <div className="flyout-header">
+            <div className="flyout-title">🗺️ Canvas</div>
+            <button className="close-mini-btn" onClick={() => setShowCanvasMenu(false)}>✕</button>
+          </div>
+          <div className="flyout-content">
+            <div className="flyout-section-label">Ações do Canvas</div>
+            <button
+              className="flyout-item"
+              disabled={loading || !connected}
+              onClick={() => {
+                btnAutoLayout();
+                setShowCanvasMenu(false);
+              }}
+            >
+              <span className="flyout-item-icon">✨</span>
+              <div className="flyout-item-text">
+                <span className="flyout-item-title">Organizar Layout</span>
+                <span className="flyout-item-desc">Reorganiza visualmente os dispositivos no canvas</span>
+              </div>
+            </button>
+
+            <button
+              className="flyout-item"
+              disabled={loading || !connected}
+              onClick={() => {
+                btnSaveAllConfigs();
+                setShowCanvasMenu(false);
+              }}
+            >
+              <span className="flyout-item-icon">💾</span>
+              <div className="flyout-item-text">
+                <span className="flyout-item-title">Salvar NVRAM</span>
+                <span className="flyout-item-desc">Executa "write" em todos os roteadores e switches</span>
+              </div>
+            </button>
+
+            <button
+              className="flyout-item danger"
+              disabled={loading || !connected}
+              onClick={() => {
+                setShowCanvasMenu(false);
+                btnClearCanvas();
+              }}
+            >
+              <span className="flyout-item-icon">⚠️</span>
+              <div className="flyout-item-text">
+                <span className="flyout-item-title">Limpar Canvas</span>
+                <span className="flyout-item-desc">Remove todos os equipamentos e conexões</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ─── Memory Settings Modal ─── */}
       {showMemorySettings && (
         <div className="settings-overlay">
@@ -589,27 +647,22 @@ function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <button className="nav-item" title="Organizar Layout" onClick={btnAutoLayout} disabled={loading || !connected}>
-            <span>✨</span>
-            <span className="nav-tooltip">Organizar Layout</span>
-          </button>
-          <button className="nav-item nav-save" title="Salvar NVRAM (write)" onClick={btnSaveAllConfigs} disabled={loading || !connected}>
-            <span>💾</span>
-            <span className="nav-tooltip">Salvar NVRAM</span>
-          </button>
-          <button className="nav-item nav-danger" title="Limpar Canvas" onClick={btnClearCanvas} disabled={loading || !connected}>
-            <span>⚠️</span>
-            <span className="nav-tooltip">Limpar Canvas</span>
+          <button
+            className={`nav-item ${showCanvasMenu ? 'active' : ''}`}
+            title="Canvas"
+            onClick={() => { setShowCanvasMenu(!showCanvasMenu); setShowAgentMenu(false); }}
+          >
+            <span>🗺️</span>
+            <span className="nav-label">Canvas</span>
           </button>
           <div className="sidebar-divider" />
-          
-          <button 
-            className={`nav-item ${showAgentMenu ? 'active' : ''}`} 
-            title="Menu do Agente" 
-            onClick={() => setShowAgentMenu(!showAgentMenu)}
+          <button
+            className={`nav-item ${showAgentMenu ? 'active' : ''}`}
+            title="AI Agent"
+            onClick={() => { setShowAgentMenu(!showAgentMenu); setShowCanvasMenu(false); }}
           >
             <span>🤖</span>
-            <span className="nav-tooltip">Agente</span>
+            <span className="nav-label">AI Agent</span>
           </button>
         </nav>
 
@@ -642,11 +695,6 @@ function App() {
               <span className="badge-value">{stats.links}</span>
             </div>
             <div className="header-badge stat-badge">
-              <span className="badge-icon green">📡</span>
-              <span className="badge-label">MCP</span>
-              <span className="badge-value">{connected ? 'Online' : 'Offline'}</span>
-            </div>
-            <div className="header-badge stat-badge">
               <span className={`badge-icon ${ptConnected ? 'green' : 'red'}`}>🖧</span>
               <span className="badge-label">PT Bridge</span>
               <span className="badge-value" style={{ color: ptConnected ? 'var(--success)' : 'var(--danger)' }}>
@@ -657,11 +705,6 @@ function App() {
               <span className="badge-icon blue">⚡</span>
               <span className="badge-label">Comandos</span>
               <span className="badge-value">{stats.commands}</span>
-            </div>
-            <div className="header-badge-divider" />
-            <div className="header-badge">
-              <div className={`dot ${connected ? 'online' : 'offline'}`} />
-              {connected ? 'MCP Conectado' : 'Desconectado'}
             </div>
           </div>
         </header>
