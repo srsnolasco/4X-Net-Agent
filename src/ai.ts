@@ -208,12 +208,13 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
 ];
 
 export const processNaturalLanguage = async (
-  prompt: string, 
-  apiKey: string, 
+  prompt: string,
+  apiKey: string,
   onLog: (msg: string) => void,
   maxIterations: number = 10,
   history: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [],
-  systemPrompt?: string
+  systemPrompt?: string,
+  shouldStop?: () => boolean
 ): Promise<OpenAI.Chat.Completions.ChatCompletionMessageParam[]> => {
   if (!apiKey) {
     throw new Error("Chave da OpenAI ausente! Configure VITE_OPENAI_API_KEY no arquivo .env");
@@ -241,10 +242,14 @@ export const processNaturalLanguage = async (
   let wantsMore = true;
   let iterations = 0;
   while (wantsMore && iterations < maxIterations) {
+    if (shouldStop?.()) {
+      onLog("[SYSTEM] Agente interrompido pelo usuário.");
+      break;
+    }
     iterations++;
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini", 
+        model: "gpt-4o-mini",
         messages: messages,
         tools: tools,
         tool_choice: "auto"
@@ -255,17 +260,21 @@ export const processNaturalLanguage = async (
 
       if (msg.tool_calls && msg.tool_calls.length > 0) {
         for (const toolCall of msg.tool_calls) {
+          if (shouldStop?.()) {
+            onLog("[SYSTEM] Agente interrompido pelo usuário.");
+            wantsMore = false;
+            break;
+          }
           const funcName = (toolCall as any).function.name;
           const args = JSON.parse((toolCall as any).function.arguments);
-          
+
           onLog(`[IA] Chamando ferramenta: ${funcName} (${JSON.stringify(args)})`);
-          
+
           let resultText = "";
           try {
             const res = await callMcpTool(funcName, args);
             resultText = typeof res === 'string' ? res : JSON.stringify(res);
 
-            // Após criar ou modificar um device, aguarda o boot antes de continuar
             if (funcName === 'pt_add_device' || funcName === 'pt_add_module') {
               onLog(`[IA] Aguardando boot do dispositivo (5s)...`);
               await new Promise(resolve => setTimeout(resolve, 5000));
