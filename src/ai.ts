@@ -259,6 +259,8 @@ export const processNaturalLanguage = async (
       messages.push(msg);
 
       if (msg.tool_calls && msg.tool_calls.length > 0) {
+        const respondedIds = new Set<string>();
+
         for (const toolCall of msg.tool_calls) {
           if (shouldStop?.()) {
             onLog("[SYSTEM] Agente interrompido pelo usuário.");
@@ -289,6 +291,18 @@ export const processNaturalLanguage = async (
             tool_call_id: toolCall.id,
             content: resultText
           });
+          respondedIds.add(toolCall.id);
+        }
+
+        // Garante respostas para tool_calls não executados (ex: interrupção pelo usuário)
+        for (const toolCall of msg.tool_calls) {
+          if (!respondedIds.has(toolCall.id)) {
+            messages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: "Execução interrompida pelo usuário."
+            });
+          }
         }
       } else {
         wantsMore = false;

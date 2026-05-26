@@ -627,13 +627,40 @@ function App() {
       const apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
       addLog(`[DEBUG] API Key presente: ${apiKey ? 'Sim (' + apiKey.substring(0,12) + '...)' : 'NÃO'}`);
 
+      // Sanitiza o histórico removendo grupos de tool_calls incompletos
+      // (assistant com tool_calls sem todas as respostas 'tool' correspondentes)
+      const sanitizeHistory = (history: any[]): any[] => {
+        const result: any[] = [];
+        let i = 0;
+        while (i < history.length) {
+          const msg = history[i];
+          if (msg.role === 'assistant' && msg.tool_calls && msg.tool_calls.length > 0) {
+            const expectedIds = new Set(msg.tool_calls.map((tc: any) => tc.id));
+            const respondedIds = new Set<string>();
+            let j = i + 1;
+            while (j < history.length && history[j].role === 'tool') {
+              respondedIds.add(history[j].tool_call_id);
+              j++;
+            }
+            const allResponded = [...expectedIds].every(id => respondedIds.has(id));
+            if (allResponded) {
+              for (let k = i; k < j; k++) result.push(history[k]);
+            }
+            // Se incompleto, descarta o grupo inteiro (assistant + tool responses parciais)
+            i = j;
+          } else {
+            result.push(msg);
+            i++;
+          }
+        }
+        return result;
+      };
+
       // Helper para fatiar o histórico sem quebrar cadeias de tool_calls
-      // O OpenAI exige que mensagens 'tool' sigam imediatamente um 'assistant' com 'tool_calls'
       const getSafeHistory = (rawHistory: any[], limit: number) => {
-        let slice = rawHistory.slice(-(limit * 2));
-        // Se o primeiro item do fatiamento for uma resposta de ferramenta,
-        // precisamos remover até encontrar uma mensagem que não seja dependente.
-        while (slice.length > 0 && (slice[0].role === 'tool' || (slice[0].role === 'assistant' && slice[0].tool_calls && !slice[0].content))) {
+        const sanitized = sanitizeHistory(rawHistory);
+        let slice = sanitized.slice(-(limit * 2));
+        while (slice.length > 0 && (slice[0].role === 'tool' || (slice[0].role === 'assistant' && slice[0].tool_calls))) {
           slice.shift();
         }
         return slice;
